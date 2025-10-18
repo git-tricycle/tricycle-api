@@ -1,0 +1,15 @@
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String   @unique
+  firstName      String
+  lastName  String
+  middleName String?
+  password  String
+  role     Role    @default(passenger)
+  status   Status  @default(active)
+  avatar  String?
+  metadata  Metadata?
+  isDeleted Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

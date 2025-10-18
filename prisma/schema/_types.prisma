@@ -1,0 +1,6 @@
+type Metadata {
+  address String?
+  phone   String?
+  age     Int?
+  gender  Gender?
+}

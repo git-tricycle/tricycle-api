@@ -1,0 +1,17 @@
+enum Role {
+  driver
+  passenger
+  admin
+}
+
+enum Status {
+  active
+  inactive
+  banned
+}
+
+enum Gender {
+  male
+  female
+  other
+}
