@@ -1,13 +1,13 @@
 import { prisma } from "../lib/prisma";
-import { UpdateUserData, SearchUserParams, CreateUserData, Role } from "../types";
+import { UpdateUserData, CreateUserData, Role } from "../types";
 import { requireAdminPermission, requireWritePermission, requireDeletePermission } from "../middleware/rbac";
+import { Prisma } from "@prisma/client";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 
 const userService = {
   getAllUsers,
   getUserById,
-  searchUsers,
   createUserAdmin,
   updateUser,
   deleteUser,
@@ -15,34 +15,90 @@ const userService = {
 
 export default userService;
 
-async function getAllUsers() {
+async function getAllUsers(params?: {
+  page?: number;
+  limit?: number;
+  sort?: string;
+  order?: "asc" | "desc";
+  fields?: string;
+  query?: string;
+  filters?: Record<string, any>;
+}) {
   try {
-    const users = await prisma.user.findMany({
-      where: {
-        isDeleted: false,
-      },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        middleName: true,
-        email: true,
-        role: true,
-        status: true,
-        avatar: true,
-        metadata: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+    const { page = 1, limit = 10, sort, order = "desc", fields, query, filters } = params || {};
+
+    const skip = (page - 1) * limit;
+
+    // Build where clause
+    const whereClause: Prisma.UserWhereInput = {
+      isDeleted: false,
+      ...(query
+        ? {
+            OR: [
+              { firstName: { contains: query, mode: "insensitive" } },
+              { lastName: { contains: query, mode: "insensitive" } },
+              { middleName: { contains: query, mode: "insensitive" } },
+              { email: { contains: query, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+      // Apply dynamic filters
+      ...(filters || {}),
+    };
+
+    const findManyQuery: Prisma.UserFindManyArgs = {
+      where: whereClause,
+      skip,
+      take: limit,
+      orderBy: sort
+        ? typeof sort === "string" && !sort.startsWith("{")
+          ? { [sort]: order }
+          : JSON.parse(sort)
+        : { createdAt: order as Prisma.SortOrder },
+    };
+
+    // Handle field selection - default to only "id" if no fields specified
+    const fieldSelections = fields
+      ? fields.split(",").reduce(
+          (acc, field) => {
+            const parts = field.trim().split(".");
+            if (parts.length > 1) {
+              const [parent, ...children] = parts;
+              acc[parent] = acc[parent] || { select: {} };
+
+              let current = acc[parent].select;
+              for (let i = 0; i < children.length - 1; i++) {
+                current[children[i]] = current[children[i]] || { select: {} };
+                current = current[children[i]].select;
+              }
+              current[children[children.length - 1]] = true;
+            } else {
+              acc[parts[0]] = true;
+            }
+            return acc;
+          },
+          { id: true } as Record<string, any>
+        )
+      : { id: true };
+
+    findManyQuery.select = fieldSelections;
+
+    const [users, total] = await Promise.all([
+      prisma.user.findMany(findManyQuery),
+      prisma.user.count({ where: whereClause }),
+    ]);
 
     return {
       success: true,
       message: "Users retrieved successfully",
       data: users,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        hasMore: skip + limit < total,
+      },
     };
   } catch (error) {
     console.error("Get users error:", error);
@@ -53,27 +109,42 @@ async function getAllUsers() {
   }
 }
 
-async function getUserById(id: string) {
+async function getUserById(id: string, fields?: string) {
   try {
-    const user = await prisma.user.findUnique({
+    const query: Prisma.UserFindUniqueArgs = {
       where: {
         id,
         isDeleted: false,
       },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        middleName: true,
-        email: true,
-        role: true,
-        status: true,
-        avatar: true,
-        metadata: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+    };
+
+    // Handle field selection - default to only "id" if no fields specified
+    const fieldSelections = fields
+      ? fields.split(",").reduce(
+          (acc, field) => {
+            const parts = field.trim().split(".");
+            if (parts.length > 1) {
+              const [parent, ...children] = parts;
+              acc[parent] = acc[parent] || { select: {} };
+
+              let current = acc[parent].select;
+              for (let i = 0; i < children.length - 1; i++) {
+                current[children[i]] = current[children[i]] || { select: {} };
+                current = current[children[i]].select;
+              }
+              current[children[children.length - 1]] = true;
+            } else {
+              acc[parts[0]] = true;
+            }
+            return acc;
+          },
+          { id: true } as Record<string, any>
+        )
+      : { id: true };
+
+    query.select = fieldSelections;
+
+    const user = await prisma.user.findUnique(query);
 
     if (!user) {
       return {
@@ -89,101 +160,6 @@ async function getUserById(id: string) {
     };
   } catch (error) {
     console.error("Get user error:", error);
-    return {
-      success: false,
-      message: "Server error",
-    };
-  }
-}
-
-async function searchUsers(params: SearchUserParams) {
-  try {
-    const { query, role, status, limit = 10, offset = 0 } = params;
-
-    // Build where clause
-    const where: any = {
-      isDeleted: false,
-    };
-
-    // Add text search if query is provided
-    if (query) {
-      where.OR = [
-        {
-          firstName: {
-            contains: query,
-            mode: "insensitive",
-          },
-        },
-        {
-          lastName: {
-            contains: query,
-            mode: "insensitive",
-          },
-        },
-        {
-          middleName: {
-            contains: query,
-            mode: "insensitive",
-          },
-        },
-        {
-          email: {
-            contains: query,
-            mode: "insensitive",
-          },
-        },
-      ];
-    }
-
-    // Add role filter if provided
-    if (role) {
-      where.role = role;
-    }
-
-    // Add status filter if provided
-    if (status) {
-      where.status = status;
-    }
-
-    // Get total count for pagination
-    const total = await prisma.user.count({ where });
-
-    // Get users with pagination
-    const users = await prisma.user.findMany({
-      where,
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        middleName: true,
-        email: true,
-        role: true,
-        status: true,
-        avatar: true,
-        metadata: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      take: limit,
-      skip: offset,
-    });
-
-    return {
-      success: true,
-      message: "Users search completed successfully",
-      data: users,
-      pagination: {
-        total,
-        limit,
-        offset,
-        hasMore: offset + limit < total,
-      },
-    };
-  } catch (error) {
-    console.error("Search users error:", error);
     return {
       success: false,
       message: "Server error",

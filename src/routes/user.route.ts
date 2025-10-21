@@ -7,8 +7,7 @@ import { logInfo, logError } from "../middleware/logger";
 const router = express.Router();
 
 router.get("/", authenticate, getAllUsers);
-router.get("/search", authenticate, searchUsers);
-router.post("/create/admin", authenticate, requireAdmin, createUserAdmin);
+router.post("/admin", authenticate, requireAdmin, createUserAdmin);
 router.get("/:id", authenticate, getUserById);
 router.patch("/:id", authenticate, requireWritePermission, updateUser);
 router.put("/:id", authenticate, requireDeletePermission, deleteUser);
@@ -18,7 +17,65 @@ router.put("/:id", authenticate, requireDeletePermission, deleteUser);
 // @access  Public
 async function getAllUsers(req: Request, res: Response) {
   try {
-    const result = await userService.getAllUsers();
+    const { page, limit, sort, order, fields, query } = req.query;
+
+    // Validate query parameters
+    if (page && (isNaN(Number(page)) || Number(page) < 1)) {
+      logError("Invalid page parameter", `Page: ${page}`, req);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid page parameter",
+      });
+    }
+
+    if (limit && (isNaN(Number(limit)) || Number(limit) < 1)) {
+      logError("Invalid limit parameter", `Limit: ${limit}`, req);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid limit parameter",
+      });
+    }
+
+    if (order && !["asc", "desc"].includes(order as string)) {
+      logError("Invalid order parameter", `Order: ${order}`, req);
+      return res.status(400).json({
+        success: false,
+        message: "Order must be 'asc' or 'desc'",
+      });
+    }
+
+    if (fields && typeof fields !== "string") {
+      logError("Invalid fields parameter", `Fields: ${fields}`, req);
+      return res.status(400).json({
+        success: false,
+        message: "Fields must be a string",
+      });
+    }
+
+    // Build dynamic filters from query parameters (format: filter_fieldName)
+    const filters: Record<string, any> = {};
+
+    Object.keys(req.query).forEach((key) => {
+      if (key.startsWith("filter_")) {
+        const fieldName = key.replace("filter_", "");
+        const value = req.query[key];
+        if (value && typeof value === "string") {
+          filters[fieldName] = value;
+        }
+      }
+    });
+
+    const params = {
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+      sort: sort as string,
+      order: order as "asc" | "desc",
+      fields: fields as string,
+      query: query as string,
+      filters: Object.keys(filters).length > 0 ? filters : undefined,
+    };
+
+    const result = await userService.getAllUsers(params);
 
     if (!result.success) {
       logError("Failed to fetch users", result.message, req);
@@ -33,6 +90,7 @@ async function getAllUsers(req: Request, res: Response) {
       success: true,
       message: result.message,
       data: result.data,
+      pagination: result.pagination,
     });
   } catch (error) {
     logError("Get users error", error, req);
@@ -49,8 +107,25 @@ async function getAllUsers(req: Request, res: Response) {
 async function getUserById(req: Request, res: Response) {
   try {
     const { id } = req.params;
+    const { fields } = req.query;
 
-    const result = await userService.getUserById(id);
+    if (!id) {
+      logError("Missing user ID parameter", "ID is required", req);
+      return res.status(400).json({
+        success: false,
+        message: "User ID is required",
+      });
+    }
+
+    if (fields && typeof fields !== "string") {
+      logError("Invalid fields parameter", `Fields: ${fields}`, req);
+      return res.status(400).json({
+        success: false,
+        message: "Fields must be a string",
+      });
+    }
+
+    const result = await userService.getUserById(id, fields as string);
 
     if (!result.success) {
       logError(`User not found with ID: ${id}`, result.message, req);
@@ -68,47 +143,6 @@ async function getUserById(req: Request, res: Response) {
     });
   } catch (error) {
     logError("Get user error", error, req);
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
-  }
-}
-
-// @route   GET /api/user/search
-// @desc    Search users
-// @access  Public
-async function searchUsers(req: Request, res: Response) {
-  try {
-    const { query, role, status, limit, offset } = req.query;
-
-    const searchParams = {
-      query: query as string,
-      role: role as "driver" | "passenger" | "admin",
-      status: status as "active" | "inactive" | "banned",
-      limit: limit ? parseInt(limit as string, 10) : undefined,
-      offset: offset ? parseInt(offset as string, 10) : undefined,
-    };
-
-    const result = await userService.searchUsers(searchParams);
-
-    if (!result.success) {
-      logError("Failed to search users", result.message, req);
-      return res.status(500).json({
-        success: false,
-        message: result.message,
-      });
-    }
-
-    logInfo(`Search completed - found ${result.data?.length || 0} users`, req);
-    res.json({
-      success: true,
-      message: result.message,
-      data: result.data,
-      pagination: result.pagination,
-    });
-  } catch (error) {
-    logError("Search users error", error, req);
     res.status(500).json({
       success: false,
       message: "Server error",

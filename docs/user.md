@@ -81,8 +81,7 @@ interface User {
 |--------|----------|-------------------|-------|---------|-----------|
 | **View All Users** | `GET /api/user` | Authentication | ✅ | ✅ | ✅ |
 | **View User by ID** | `GET /api/user/{id}` | Authentication | ✅ | ✅ | ✅ |
-| **Search Users** | `GET /api/user/search` | Authentication | ✅ | ✅ | ✅ |
-| **Create User** | `POST /api/user/create/admin` | Admin role | ✅ | ❌ | ❌ |
+| **Create User** | `POST /api/user/admin` | Admin role | ✅ | ❌ | ❌ |
 | **Update User** | `PATCH /api/user/{id}` | Write permission | ✅ | ❌ | ❌ |
 | **Delete User** | `PUT /api/user/{id}` | Delete permission | ✅ | ❌ | ❌ |
 
@@ -111,9 +110,39 @@ const ROLE_PERMISSIONS = {
 GET /api/user
 ```
 
-**Description:** Retrieve all active (non-deleted) users in the system, ordered by creation date (newest first).
+**Description:** Retrieve all active (non-deleted) users with advanced filtering, pagination, sorting, and dynamic field selection.
 
 **Required Permission:** Authentication only
+
+**Query Parameters:**
+| Parameter | Type | Required | Description | Example |
+|-----------|------|----------|-------------|---------|
+| `page` | number | No | Page number for pagination (default: 1) | `2` |
+| `limit` | number | No | Results per page (default: 10) | `25` |
+| `sort` | string | No | Field to sort by or JSON object | `"firstName"`, `"createdAt"` |
+| `order` | string | No | Sort order: "asc" or "desc" (default: "desc") | `"asc"` |
+| `fields` | string | No | Comma-separated fields to return (default: "id") | `"firstName,lastName,email"` |
+| `query` | string | No | Text search (specify fields with queryFields) | `"john"` |
+| `queryFields` | string | No | Fields to search in (default: firstName,lastName,middleName,email) | `"firstName,email"` |
+| `filter_*` | any | No | Dynamic filters using prefix (e.g., filter_role) | `filter_role=driver` |
+
+**Example Requests:**
+```http
+# Basic request (returns only id field)
+GET /api/user
+
+# Get specific fields with pagination
+GET /api/user?fields=firstName,lastName,email&page=1&limit=5
+
+# Search with filtering and sorting
+GET /api/user?query=john&filter_role=driver&sort=firstName&order=asc
+
+# Complex filtering with nested field selection
+GET /api/user?filter_status=active&fields=firstName,lastName,metadata.phone&limit=20
+
+# Multiple filters
+GET /api/user?filter_role=passenger&filter_status=active&fields=firstName,lastName,email,createdAt
+```
 
 **Response (200):**
 ```json
@@ -122,25 +151,31 @@ GET /api/user
   "message": "Users retrieved successfully",
   "data": [
     {
-      "id": "507f1f77bcf86cd799439011",
       "firstName": "John",
       "lastName": "Doe",
-      "middleName": "Michael",
-      "email": "john.doe@example.com",
-      "role": "passenger",
-      "status": "active",
-      "avatar": "https://example.com/avatar.jpg",
-      "metadata": {
-        "address": "123 Main St, City",
-        "phone": "+1234567890",
-        "age": 30,
-        "gender": "male"
-      },
-      "createdAt": "2025-10-18T10:00:00.000Z",
-      "updatedAt": "2025-10-18T10:00:00.000Z"
+      "email": "john.doe@example.com"
     }
-  ]
+  ],
+  "pagination": {
+    "total": 150,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 15,
+    "hasMore": true
+  }
 }
+```
+
+**Field Selection Examples:**
+```http
+# Get only basic info
+GET /api/user?fields=firstName,lastName,email
+
+# Include nested metadata fields
+GET /api/user?fields=firstName,lastName,metadata.phone,metadata.address
+
+# Get all user fields (comprehensive)
+GET /api/user?fields=id,firstName,lastName,middleName,email,role,status,avatar,metadata,createdAt,updatedAt
 ```
 
 ---
@@ -150,35 +185,56 @@ GET /api/user
 GET /api/user/{userId}
 ```
 
-**Description:** Retrieve detailed information about a specific user by their unique ID.
+**Description:** Retrieve detailed information about a specific user by their unique ID with dynamic field selection.
 
 **Path Parameters:**
 - `userId` (string) - MongoDB ObjectId of the user
 
+**Query Parameters:**
+| Parameter | Type | Required | Description | Example |
+|-----------|------|----------|-------------|---------|
+| `fields` | string | No | Comma-separated fields to return (default: "id") | `"firstName,lastName,email,metadata.phone"` |
+
 **Required Permission:** Authentication only
 
-**Response (200):**
+**Example Requests:**
+```http
+# Get only ID (default)
+GET /api/user/507f1f77bcf86cd799439011
+
+# Get specific fields
+GET /api/user/507f1f77bcf86cd799439011?fields=firstName,lastName,email
+
+# Get full user profile
+GET /api/user/507f1f77bcf86cd799439011?fields=id,firstName,lastName,middleName,email,role,status,avatar,metadata,createdAt,updatedAt
+
+# Get user with specific metadata fields
+GET /api/user/507f1f77bcf86cd799439011?fields=firstName,lastName,metadata.phone,metadata.address
+```
+
+**Response (200) - Default (ID only):**
 ```json
 {
   "success": true,
   "message": "User retrieved successfully",
   "data": {
-    "id": "507f1f77bcf86cd799439011",
+    "id": "507f1f77bcf86cd799439011"
+  }
+}
+```
+
+**Response (200) - With Selected Fields:**
+```json
+{
+  "success": true,
+  "message": "User retrieved successfully",
+  "data": {
     "firstName": "John",
     "lastName": "Doe",
-    "middleName": "Michael",
     "email": "john.doe@example.com",
-    "role": "passenger",
-    "status": "active",
-    "avatar": "https://example.com/avatar.jpg",
     "metadata": {
-      "address": "123 Main St, City",
-      "phone": "+1234567890",
-      "age": 30,
-      "gender": "male"
-    },
-    "createdAt": "2025-10-18T10:00:00.000Z",
-    "updatedAt": "2025-10-18T10:00:00.000Z"
+      "phone": "+1234567890"
+    }
   }
 }
 ```
@@ -193,73 +249,13 @@ GET /api/user/{userId}
 
 ---
 
-### Search Users
-```http
-GET /api/user/search
-```
-
-**Description:** Advanced search functionality with filtering and pagination support.
-
-**Query Parameters:**
-| Parameter | Type | Required | Description | Example |
-|-----------|------|----------|-------------|---------|
-| `query` | string | No | Search text (firstName, lastName, middleName, email) | `"john"` |
-| `role` | string | No | Filter by user role | `"driver"`, `"passenger"`, `"admin"` |
-| `status` | string | No | Filter by user status | `"active"`, `"inactive"`, `"banned"` |
-| `limit` | number | No | Results per page (default: 10, max: 100) | `20` |
-| `offset` | number | No | Skip records for pagination (default: 0) | `10` |
-
-**Example Requests:**
-```http
-# Basic text search
-GET /api/user/search?query=john
-
-# Filter by role
-GET /api/user/search?role=driver
-
-# Combined search with pagination
-GET /api/user/search?query=smith&role=passenger&status=active&limit=5&offset=0
-
-# Status filter only
-GET /api/user/search?status=banned
-```
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "message": "Users search completed successfully",
-  "data": [
-    {
-      "id": "507f1f77bcf86cd799439011",
-      "firstName": "John",
-      "lastName": "Smith",
-      "middleName": null,
-      "email": "john.smith@example.com",
-      "role": "passenger",
-      "status": "active",
-      "avatar": null,
-      "metadata": {
-        "phone": "+1555000123"
-      },
-      "createdAt": "2025-10-18T09:30:00.000Z",
-      "updatedAt": "2025-10-18T09:30:00.000Z"
-    }
-  ],
-  "pagination": {
-    "total": 25,
-    "limit": 10,
-    "offset": 0,
-    "hasMore": true
-  }
-}
-```
+> **📌 Note:** Search functionality has been unified into the `GET /api/user` endpoint. Use the `query` parameter for text search and `filter_*` parameters for advanced filtering. The dedicated search endpoint has been deprecated in favor of this more powerful and flexible approach.
 
 ---
 
 ### Create User (Admin Only)
 ```http
-POST /api/user/create/admin
+POST /api/user/admin
 ```
 
 **Description:** Create a new user account. Only administrators can create users through this endpoint.
@@ -551,11 +547,130 @@ curl "http://localhost:5000/api/user/search?limit=20&offset=20" \
 
 ---
 
-## 💻 Examples
+## � Advanced Features
+
+### Dynamic Filtering System
+
+The API supports flexible filtering using the `filter_` prefix for any field in the User model. This allows you to filter by any user attribute without hardcoded parameters.
+
+#### Filter Syntax
+```
+filter_{fieldName}={value}
+```
+
+#### Supported Filter Examples:
+```http
+# Filter by role
+GET /api/user?filter_role=driver
+
+# Filter by status
+GET /api/user?filter_status=active
+
+# Filter by first name
+GET /api/user?filter_firstName=John
+
+# Filter by nested metadata fields
+GET /api/user?filter_metadata.age=25
+
+# Multiple filters (AND operation)
+GET /api/user?filter_role=driver&filter_status=active&filter_firstName=John
+```
+
+### Dynamic Field Selection
+
+Control exactly which fields are returned in the response using the `fields` parameter. This reduces payload size and improves performance.
+
+#### Field Selection Syntax
+```
+fields=field1,field2,field3
+```
+
+#### Field Selection Examples:
+```http
+# Basic user info
+GET /api/user?fields=firstName,lastName,email
+
+# Include role and status
+GET /api/user?fields=firstName,lastName,email,role,status
+
+# Nested metadata fields
+GET /api/user?fields=firstName,lastName,metadata.phone,metadata.address
+
+# All fields (comprehensive response)
+GET /api/user?fields=id,firstName,lastName,middleName,email,role,status,avatar,metadata,createdAt,updatedAt
+
+# Default behavior (only ID)
+GET /api/user
+```
+
+### Pagination & Sorting
+
+Advanced pagination with sorting capabilities for efficient data retrieval.
+
+#### Pagination Parameters:
+- `page` - Page number (default: 1)
+- `limit` - Results per page (default: 10)
+
+#### Sorting Parameters:
+- `sort` - Field to sort by (default: "createdAt")
+- `order` - Sort direction: "asc" or "desc" (default: "desc")
+
+#### Examples:
+```http
+# Page 2 with 20 results, sorted by firstName ascending
+GET /api/user?page=2&limit=20&sort=firstName&order=asc
+
+# Sort by creation date (newest first)
+GET /api/user?sort=createdAt&order=desc
+
+# Sort by multiple fields (JSON format)
+GET /api/user?sort={"role":"asc","firstName":"asc"}
+```
+
+### Text Search
+
+Search across multiple text fields simultaneously using the `query` parameter.
+
+#### Searchable Fields:
+- `firstName`
+- `lastName` 
+- `middleName`
+- `email`
+
+#### Search Examples:
+```http
+# Basic text search
+GET /api/user?query=john
+
+# Text search with filtering
+GET /api/user?query=smith&filter_role=driver
+
+# Text search with field selection
+GET /api/user?query=doe&fields=firstName,lastName,email,role
+```
+
+### Combined Advanced Queries
+
+Combine all features for powerful, flexible queries:
+
+```http
+# Complex query example
+GET /api/user?query=john&filter_role=driver&filter_status=active&fields=firstName,lastName,email,metadata.phone&page=1&limit=5&sort=firstName&order=asc
+
+# Performance-optimized query (minimal fields)
+GET /api/user?filter_status=active&fields=id,firstName,lastName&limit=50
+
+# Metadata-based filtering with nested field selection
+GET /api/user?filter_metadata.age=30&fields=firstName,lastName,metadata.age,metadata.phone&sort=createdAt&order=desc
+```
+
+---
+
+## �💻 Examples
 
 ### Complete User Management Workflow
 
-#### 1. Get All Users (Any authenticated user)
+#### 1. Get All Users (Basic - Returns only IDs)
 ```bash
 export TOKEN="your-jwt-token-here"
 
@@ -564,24 +679,51 @@ curl -X GET "http://localhost:5000/api/user" \
   -H "Content-Type: application/json"
 ```
 
-#### 2. Search for Specific Users
+#### 2. Get Users with Specific Fields
 ```bash
-# Search for drivers
-curl -X GET "http://localhost:5000/api/user/search?role=driver&limit=5" \
+# Get basic user information
+curl -X GET "http://localhost:5000/api/user?fields=firstName,lastName,email,role" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json"
 ```
 
-#### 3. Get User Details
+#### 3. Search and Filter Users
 ```bash
+# Search for "john" in names/email with driver role
+curl -X GET "http://localhost:5000/api/user?query=john&filter_role=driver&fields=firstName,lastName,email" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json"
+
+# Filter active passengers with pagination
+curl -X GET "http://localhost:5000/api/user?filter_role=passenger&filter_status=active&page=1&limit=10" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json"
+```
+
+#### 4. Advanced Query with Sorting
+```bash
+# Get drivers sorted by name with metadata
+curl -X GET "http://localhost:5000/api/user?filter_role=driver&fields=firstName,lastName,email,metadata.phone&sort=firstName&order=asc&limit=20" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json"
+```
+
+#### 5. Get User Details by ID
+```bash
+# Get only ID (default)
 curl -X GET "http://localhost:5000/api/user/507f1f77bcf86cd799439011" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json"
+
+# Get specific user fields
+curl -X GET "http://localhost:5000/api/user/507f1f77bcf86cd799439011?fields=firstName,lastName,email,metadata.phone" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json"
 ```
 
-#### 4. Create New User (Admin only)
+#### 6. Create New User (Admin only)
 ```bash
-curl -X POST "http://localhost:5000/api/user/create/admin" \
+curl -X POST "http://localhost:5000/api/user/admin" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -598,7 +740,7 @@ curl -X POST "http://localhost:5000/api/user/create/admin" \
   }'
 ```
 
-#### 5. Update User Information (Admin only)
+#### 7. Update User Information (Admin only)
 ```bash
 curl -X PATCH "http://localhost:5000/api/user/507f1f77bcf86cd799439011" \
   -H "Authorization: Bearer $TOKEN" \
@@ -859,6 +1001,36 @@ All user operations are logged with:
 - Check for unique email constraint violations
 - Verify all required fields are provided
 - Ensure password meets security requirements
+
+---
+
+## 🎉 What's New
+
+### Enhanced User API Features (v2.0)
+
+The User API has been significantly enhanced with powerful new features:
+
+#### 🔥 Key Improvements:
+- **Dynamic Field Selection**: Control exactly which fields are returned using the `fields` parameter
+- **Advanced Filtering**: Use `filter_*` prefix to filter by any user field dynamically
+- **Unified Search**: Text search, filtering, pagination, and sorting all in one endpoint
+- **Performance Optimization**: Default response returns only `id` field unless specified
+- **Enhanced Pagination**: Improved pagination with `page`/`limit` instead of `offset`
+- **Flexible Sorting**: Sort by any field with `sort` and `order` parameters
+- **Nested Field Support**: Access nested metadata fields with dot notation
+
+#### 🚀 Benefits:
+- **Reduced Payload Size**: Only fetch the data you need
+- **Better Performance**: Optimized queries and minimal default responses  
+- **Flexible Filtering**: Filter by any field without hardcoded parameters
+- **Developer Friendly**: Intuitive API design with consistent patterns
+- **Backward Compatible**: Existing functionality preserved while adding new features
+
+#### 📚 Migration Guide:
+- **Old**: `GET /api/user/search?role=driver` 
+- **New**: `GET /api/user?filter_role=driver&fields=firstName,lastName,email`
+
+The enhanced API provides more power and flexibility while maintaining simplicity and performance.
 
 ---
 
