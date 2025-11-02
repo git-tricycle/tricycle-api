@@ -16,6 +16,7 @@ logs/
 
 # Prisma
 prisma/migrations/
+prisma/generated/
 
 # IDE
 .vscode/
