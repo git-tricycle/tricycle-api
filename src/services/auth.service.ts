@@ -1,7 +1,9 @@
-import { prisma } from "../lib/prisma";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { CreateUserData } from "../types";
+import { getPrismaClient } from "../lib/db.connection";
+
+const prisma = getPrismaClient();
 
 const authService = {
   register,
@@ -35,7 +37,7 @@ async function register(data: CreateUserData) {
         password: hashedPassword,
         role: data.role,
         status: data.status,
-        metadata: data.metadata,
+        ...(data.metadata && { metadata: data.metadata }),
       },
       select: {
         id: true,

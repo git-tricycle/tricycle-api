@@ -29,8 +29,8 @@ export interface CreateUserData {
     address?: string;
     phone?: string;
     age?: number;
-    gender?: string;
-  };
+    gender?: "male" | "female" | "other";
+  } | null;
 }
 
 export interface UpdateUserData {
@@ -46,8 +46,8 @@ export interface UpdateUserData {
     address?: string;
     phone?: string;
     age?: number;
-    gender?: string;
-  };
+    gender?: "male" | "female" | "other";
+  } | null;
 }
 
 export interface SearchUserParams {

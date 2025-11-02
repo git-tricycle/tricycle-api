@@ -33,7 +33,10 @@ const limiter = rateLimit({
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "https://nextjs-template-frontend.vercel.app" || "http://localhost:3000",
+    origin:
+      process.env.FRONTEND_URL ||
+      "https://nextjs-template-frontend.vercel.app" ||
+      "http://localhost:3000",
     credentials: true,
   })
 );
@@ -61,15 +64,10 @@ app.use(errorHandler);
 
 // Start server with database connection check
 async function startServer() {
-  const isDbConnected = await connectDatabase();
-
-  if (!isDbConnected) {
-    console.error("Server not started due to database connection issues");
-    process.exit(1);
-  }
+  await connectDatabase();
 
   app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
+    console.log(`Server running on http://localhost:${PORT}`);
   });
 }
 

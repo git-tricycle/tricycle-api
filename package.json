@@ -24,7 +24,6 @@
     "helmet": "^7.1.0",
     "joi": "^17.11.0",
     "jsonwebtoken": "^9.0.2",
-    "prisma": "^5.6.0",
     "winston": "^3.18.3"
   },
   "devDependencies": {
@@ -36,7 +35,7 @@
     "@types/node": "^20.8.0",
     "@types/winston": "^2.4.4",
     "nodemon": "^3.0.1",
-    "prisma": "^5.6.0",
+    "prisma": "^5.22.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.2.2"
   }

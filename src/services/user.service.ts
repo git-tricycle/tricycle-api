@@ -1,9 +1,15 @@
-import { prisma } from "../lib/prisma";
 import { UpdateUserData, CreateUserData, Role } from "../types";
-import { requireAdminPermission, requireWritePermission, requireDeletePermission } from "../middleware/rbac";
-import { Prisma } from "@prisma/client";
+import {
+  requireAdminPermission,
+  requireWritePermission,
+  requireDeletePermission,
+} from "../middleware/rbac";
+import { Prisma } from "../../prisma/generated/prisma";
+import { getPrismaClient } from "../lib/db.connection";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+
+const prisma = getPrismaClient();
 
 const userService = {
   getAllUsers,

@@ -1,7 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { prisma } from "../lib/prisma";
 import { AuthUser } from "../types";
+import { getPrismaClient } from "../lib/db.connection";
+
+const prisma = getPrismaClient();
 
 interface AuthRequest extends Request {
   user?: AuthUser;
@@ -20,7 +22,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "") as any;
     const user = await prisma.user.findUnique({
-      where: { 
+      where: {
         id: decoded.userId,
         isDeleted: false,
         status: "active",

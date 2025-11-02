@@ -1,26 +1,33 @@
 // Import database connection
-import { prisma } from "./prisma";
-import { URL } from "url";
+import { PrismaClient } from "../../prisma/generated/prisma";
+
+// Create a singleton Prisma client instance
+let prismaInstance: PrismaClient;
+
+export const getPrismaClient = () => {
+  if (!prismaInstance) {
+    prismaInstance = new PrismaClient({
+      // Increase transaction timeout to 30 seconds (30000ms)
+      transactionOptions: {
+        timeout: 30000,
+      },
+    });
+  }
+  return prismaInstance;
+};
+
+const prisma = getPrismaClient();
 
 // Function to check database connection
 export async function connectDatabase() {
   try {
-    // Test the database connection
     await prisma.$connect();
-
-    const databaseUrl = process.env.DATABASE_URL;
-
-    if (!databaseUrl) {
-      throw new Error("DATABASE_URL is not set.");
-    }
-
-    const parsedUrl = new URL(databaseUrl);
-    const hostname = parsedUrl.hostname;
-    console.log(`✅ Database connected successfully in: ${hostname}`);
-    return true;
+    console.log("Connected to the database successfully.");
   } catch (error) {
-    console.error("❌ Database connection failed:", error);
-    console.error("Please check your DATABASE_URL in the .env file");
-    return false;
+    console.error("Error connecting to the database:", {
+      error,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    process.exit(1);
   }
 }
