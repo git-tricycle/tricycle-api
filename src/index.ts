@@ -8,6 +8,8 @@ import rateLimit from "express-rate-limit";
 import userRoutes from "./routes/user.route";
 import authRoutes from "./routes/auth.route";
 import studentRoutes from "./routes/student.route";
+import vehicleRoutes from "./routes/vehicle.route";
+import driverRoutes from "./routes/driver.route";
 
 // Import middleware
 import { errorHandler } from "./middleware/error.handler";
@@ -59,6 +61,8 @@ app.get("/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/student", studentRoutes);
+app.use("/api/vehicle", vehicleRoutes);
+app.use("/api/driver", driverRoutes);
 
 // Error handling middleware
 app.use(notFound);
