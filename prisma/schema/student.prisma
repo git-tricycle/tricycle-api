@@ -1,0 +1,16 @@
+model StudentProfile {
+  id                     String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId                 String   @unique @db.ObjectId
+  studentId              String   @unique
+  dateOfBirth            DateTime
+  course                 String?
+  yearLevel              String?
+  schoolEmail            String?
+  emergencyContactName   String?
+  emergencyContactNumber String?
+  studentIdPhoto         String?
+  isVerified             Boolean  @default(false)
+  isDeleted              Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id])
+}

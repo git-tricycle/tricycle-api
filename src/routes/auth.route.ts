@@ -8,13 +8,21 @@ router.post("/register", register);
 router.post("/login", login);
 
 // @route   POST /api/auth/register
-// @desc    Register a new user
+// @desc    Register a new user and optionally create student profile
 // @access  Public
 async function register(req: Request, res: Response) {
   try {
-    const { firstName, lastName, middleName, email, password, metadata } = req.body;
+    const { firstName, lastName, middleName, email, password, metadata, studentProfile } = req.body;
 
-    const result = await authService.register({ firstName, lastName, middleName, email, password, metadata });
+    const result = await authService.register({
+      firstName,
+      lastName,
+      middleName,
+      email,
+      password,
+      metadata,
+      studentProfile,
+    });
 
     if (!result.success) {
       logError(`Registration failed for: ${email}`, result.message, req);
@@ -24,12 +32,16 @@ async function register(req: Request, res: Response) {
       });
     }
 
-    logInfo(`User registered successfully: ${email}`, req);
+    logInfo(
+      `User registered successfully: ${email}${studentProfile ? " with student profile" : ""}`,
+      req
+    );
     res.status(201).json({
       success: true,
-      message: "User created successfully",
+      message: result.message,
       data: {
         user: result.user,
+        studentProfile: result.studentProfile,
         token: result.token,
       },
     });
