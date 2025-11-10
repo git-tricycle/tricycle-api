@@ -51,6 +51,11 @@ async function register(data: CreateUserData) {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(data.password, salt);
 
+    // Determine role: explicit role takes priority, otherwise infer from profile
+    const userRole =
+      data.role ||
+      (data.studentProfile ? "passenger" : data.driverProfile ? "driver" : "passenger");
+
     // Create user
     const user = await prisma.user.create({
       data: {
@@ -59,9 +64,7 @@ async function register(data: CreateUserData) {
         middleName: data.middleName,
         email: data.email,
         password: hashedPassword,
-        role:
-          data.role ||
-          (data.studentProfile ? "passenger" : data.driverProfile ? "driver" : undefined),
+        role: userRole,
         status: data.status,
         ...(data.metadata && { metadata: data.metadata }),
       },
@@ -164,7 +167,7 @@ async function login(email: string, password: string, role: string) {
     if (!user) return { success: false, message: "Invalid credentials" };
 
     // Check if user role matches the required role
-    if (user.role !== role) {
+    if (!["admin", "driver", "passenger"].includes(user.role)) {
       return {
         success: false,
         message: "Access denied: Invalid role for this login",

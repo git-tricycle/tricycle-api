@@ -6,7 +6,7 @@ import { logInfo, logError } from "../middleware/logger";
 
 const router = express.Router();
 
-router.get("/", authenticate, getAllUsers);
+router.get("/", authenticate, requireAdmin, getAllUsers);
 router.post("/admin", authenticate, requireAdmin, createUserAdmin);
 router.get("/:id", authenticate, getUserById);
 router.patch("/:id", authenticate, requireWritePermission, updateUser);
