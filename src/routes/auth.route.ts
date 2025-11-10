@@ -12,7 +12,18 @@ router.post("/login", login);
 // @access  Public
 async function register(req: Request, res: Response) {
   try {
-    const { firstName, lastName, middleName, email, password, metadata, studentProfile } = req.body;
+    const {
+      firstName,
+      lastName,
+      middleName,
+      email,
+      password,
+      role,
+      status,
+      metadata,
+      studentProfile,
+      driverProfile,
+    } = req.body;
 
     const result = await authService.register({
       firstName,
@@ -20,8 +31,11 @@ async function register(req: Request, res: Response) {
       middleName,
       email,
       password,
+      role,
+      status,
       metadata,
       studentProfile,
+      driverProfile,
     });
 
     if (!result.success) {
@@ -33,7 +47,9 @@ async function register(req: Request, res: Response) {
     }
 
     logInfo(
-      `User registered successfully: ${email}${studentProfile ? " with student profile" : ""}`,
+      `User registered successfully: ${email}${
+        studentProfile ? " with student profile" : driverProfile ? " with driver profile" : ""
+      }`,
       req
     );
     res.status(201).json({
@@ -42,6 +58,7 @@ async function register(req: Request, res: Response) {
       data: {
         user: result.user,
         studentProfile: result.studentProfile,
+        driverProfile: result.driverProfile,
         token: result.token,
       },
     });

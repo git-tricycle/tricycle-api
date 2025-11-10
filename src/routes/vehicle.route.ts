@@ -1,21 +1,21 @@
 import express, { Request, Response } from "express";
-import userService from "../services/user.service";
 import { authenticate } from "../middleware/auth";
-import { requireAdmin, requireWritePermission, requireDeletePermission } from "../middleware/rbac";
-import { logInfo, logError } from "../middleware/logger";
+import { logError, logInfo } from "../middleware/logger";
+import { requireDeletePermission, requireWritePermission } from "../middleware/rbac";
+import vehicleService from "../services/vehicle.service";
 
 const router = express.Router();
 
-router.get("/", authenticate, requireAdmin, getAllUsers);
-router.post("/admin", authenticate, requireAdmin, createUserAdmin);
-router.get("/:id", authenticate, getUserById);
-router.patch("/:id", authenticate, requireWritePermission, updateUser);
-router.put("/:id", authenticate, requireDeletePermission, deleteUser);
+router.get("/", authenticate, getAllVehicles);
+router.post("/", createVehicle);
+router.get("/:id", authenticate, getVehicleById);
+router.patch("/:id", authenticate, requireWritePermission, updateVehicle);
+router.put("/:id", authenticate, requireDeletePermission, deleteVehicle);
 
-// @route   GET /api/user
-// @desc    Get all users
+// @route   GET /api/vehicle
+// @desc    Get all vehicle
 // @access  Public
-async function getAllUsers(req: Request, res: Response) {
+async function getAllVehicles(req: Request, res: Response) {
   try {
     const { page, limit, sort, order, fields, query } = req.query;
 
@@ -62,17 +62,17 @@ async function getAllUsers(req: Request, res: Response) {
       reqQuery: req.query,
     };
 
-    const result = await userService.getAllUsers(params);
+    const result = await vehicleService.getAllVehicles(params);
 
     if (!result.success) {
-      logError("Failed to fetch users", result.message, req);
+      logError("Failed to fetch vehicles", result.message, req);
       return res.status(500).json({
         success: false,
         message: result.message,
       });
     }
 
-    logInfo(`Successfully retrieved ${result.data?.length || 0} users`, req);
+    logInfo(`Successfully retrieved ${result.data?.length || 0} vehicles`, req);
     res.json({
       success: true,
       message: result.message,
@@ -80,7 +80,7 @@ async function getAllUsers(req: Request, res: Response) {
       pagination: result.pagination,
     });
   } catch (error) {
-    logError("Get users error", error, req);
+    logError("Get vehicles error", error, req);
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -88,19 +88,19 @@ async function getAllUsers(req: Request, res: Response) {
   }
 }
 
-// @route   GET /api/user/:id
-// @desc    Get user by ID
+// @route   GET /api/vehicle/:id
+// @desc    Get vehicle by ID
 // @access  Public
-async function getUserById(req: Request, res: Response) {
+async function getVehicleById(req: Request, res: Response) {
   try {
     const { id } = req.params;
     const { fields } = req.query;
 
     if (!id) {
-      logError("Missing user ID parameter", "ID is required", req);
+      logError("Missing ID parameter", "ID is required", req);
       return res.status(400).json({
         success: false,
-        message: "User ID is required",
+        message: "ID is required",
       });
     }
 
@@ -112,24 +112,24 @@ async function getUserById(req: Request, res: Response) {
       });
     }
 
-    const result = await userService.getUserById(id, fields as string);
+    const result = await vehicleService.getVehicleById(id, fields as string);
 
     if (!result.success) {
-      logError(`User not found with ID: ${id}`, result.message, req);
+      logError(`Vehicle not found with ID: ${id}`, result.message, req);
       return res.status(404).json({
         success: false,
         message: result.message,
       });
     }
 
-    logInfo(`Successfully retrieved user: ${id}`, req);
+    logInfo(`Successfully retrieved vehicle: ${id}`, req);
     res.json({
       success: true,
       message: result.message,
       data: result.data,
     });
   } catch (error) {
-    logError("Get user error", error, req);
+    logError("Get vehicle error", error, req);
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -137,30 +137,29 @@ async function getUserById(req: Request, res: Response) {
   }
 }
 
-// @route   POST /api/user/admin
-// @desc    Create user (Admin only)
-// @access  Private (Admin)
-async function createUserAdmin(req: Request, res: Response) {
+// @route   POST /api/vehicle
+// @desc    Create vehicle
+// @access  Public
+async function createVehicle(req: Request, res: Response) {
   try {
-    const result = await userService.createUserAdmin(req.body, req.user?.role);
+    const result = await vehicleService.createVehicle(req.body);
 
     if (!result.success) {
-      logError("Failed to create user", result.message, req);
+      logError("Failed to create vehicle", result.message, req);
       return res.status(400).json({
         success: false,
         message: result.message,
       });
     }
 
-    logInfo(`Successfully created user: ${req.body.email}`, req);
+    logInfo(`Successfully created vehicle: ${req.body.email}`, req);
     res.status(201).json({
       success: true,
       message: result.message,
-      data: result.user,
-      token: result.token,
+      data: result.data,
     });
   } catch (error) {
-    logError("Create user error", error, req);
+    logError("Create vehicle error", error, req);
     if (error instanceof Error && error.message === "Insufficient permissions") {
       return res.status(403).json({
         success: false,
@@ -174,31 +173,31 @@ async function createUserAdmin(req: Request, res: Response) {
   }
 }
 
-// @route   PATCH /api/user/:id
-// @desc    Update user
+// @route   PATCH /api/vehicle/:id
+// @desc    Update vehicle
 // @access  Private
-async function updateUser(req: Request, res: Response) {
+async function updateVehicle(req: Request, res: Response) {
   try {
     const { id } = req.params;
 
-    const result = await userService.updateUser(id, req.body, req.user?.role);
+    const result = await vehicleService.updateVehicle(id, req.body);
 
     if (!result.success) {
-      logError(`Failed to update user: ${id}`, result.message, req);
+      logError(`Failed to update vehicle: ${id}`, result.message, req);
       return res.status(404).json({
         success: false,
         message: result.message,
       });
     }
 
-    logInfo(`Successfully updated user: ${id}`, req);
+    logInfo(`Successfully updated vehicle: ${id}`, req);
     res.json({
       success: true,
       message: result.message,
       data: result.data,
     });
   } catch (error) {
-    logError("Update user error", error, req);
+    logError("Update vehicle error", error, req);
     if (error instanceof Error && error.message === "Insufficient permissions") {
       return res.status(403).json({
         success: false,
@@ -212,30 +211,30 @@ async function updateUser(req: Request, res: Response) {
   }
 }
 
-// @route   PUT /api/user/:id
-// @desc    Soft Delete user
+// @route   PUT /api/vehicle/:id
+// @desc    Soft Delete vehicle
 // @access  Private
-async function deleteUser(req: Request, res: Response) {
+async function deleteVehicle(req: Request, res: Response) {
   try {
     const { id } = req.params;
 
-    const result = await userService.deleteUser(id, req.user?.role);
+    const result = await vehicleService.deleteVehicle(id);
 
     if (!result.success) {
-      logError(`Failed to delete user: ${id}`, result.message, req);
+      logError(`Failed to delete vehicle: ${id}`, result.message, req);
       return res.status(404).json({
         success: false,
         message: result.message,
       });
     }
 
-    logInfo(`Successfully deleted user: ${id}`, req);
+    logInfo(`Successfully deleted vehicle: ${id}`, req);
     res.json({
       success: true,
       message: result.message,
     });
   } catch (error) {
-    logError("Delete user error", error, req);
+    logError("Delete vehicle error", error, req);
     if (error instanceof Error && error.message === "Insufficient permissions") {
       return res.status(403).json({
         success: false,

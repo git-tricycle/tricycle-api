@@ -1,0 +1,12 @@
+model Vehicle {
+  id           String  @id @default(auto()) @map("_id") @db.ObjectId
+  driverId     String  @unique @db.ObjectId
+  plateNumber  String  @unique
+  bodyNumber   String
+  vehiclePhoto String?
+  orCrPhoto    String?
+  isApproved   Boolean @default(false)
+  isDeleted    Boolean @default(false)
+
+  driver DriverProfile @relation(fields: [driverId], references: [id])
+}

@@ -1,0 +1,15 @@
+model DriverProfile {
+  id            String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String  @unique
+  username      String  @unique
+  address       String
+  age           Int
+  contactNumber String
+  licensePhoto  String?
+  validIdPhoto  String?
+  isVerified    Boolean @default(false)
+  isDeleted     Boolean @default(false)
+
+  user    User     @relation(fields: [userId], references: [id])
+  vehicle Vehicle?
+}

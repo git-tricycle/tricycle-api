@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import { CreateUserData } from "../types";
 import { getPrismaClient } from "../lib/db.connection";
 import studentService from "./student.service";
+import driverService from "./driver.service";
 
 const prisma = getPrismaClient();
 
@@ -35,9 +36,25 @@ async function register(data: CreateUserData) {
       }
     }
 
+    // If driver profile data is provided, validate username uniqueness
+    if (data.driverProfile) {
+      const existingDriver = await prisma.driverProfile.findUnique({
+        where: { username: data.driverProfile.username },
+      });
+
+      if (existingDriver) {
+        return { success: false, message: "Driver username already exists" };
+      }
+    }
+
     // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(data.password, salt);
+
+    // Determine role: explicit role takes priority, otherwise infer from profile
+    const userRole =
+      data.role ||
+      (data.studentProfile ? "passenger" : data.driverProfile ? "driver" : "passenger");
 
     // Create user
     const user = await prisma.user.create({
@@ -47,7 +64,7 @@ async function register(data: CreateUserData) {
         middleName: data.middleName,
         email: data.email,
         password: hashedPassword,
-        role: data.role || (data.studentProfile ? "passenger" : undefined),
+        role: userRole,
         status: data.status,
         ...(data.metadata && { metadata: data.metadata }),
       },
@@ -63,6 +80,7 @@ async function register(data: CreateUserData) {
     });
 
     let studentProfile = null;
+    let driverProfile = null;
 
     // Create student profile if data is provided
     if (data.studentProfile) {
@@ -92,16 +110,45 @@ async function register(data: CreateUserData) {
       studentProfile = studentResult.data;
     }
 
+    // Create driver profile if data is provided
+    if (data.driverProfile) {
+      const driverResult = await driverService.createDriver({
+        username: data.driverProfile.username,
+        address: data.driverProfile.address,
+        age: data.driverProfile.age,
+        contactNumber: data.driverProfile.contactNumber,
+        licensePhoto: data.driverProfile.licensePhoto,
+        validIdPhoto: data.driverProfile.validIdPhoto,
+        user: {
+          connect: { id: user.id },
+        },
+      });
+
+      if (!driverResult.success) {
+        // Rollback user creation if driver creation fails
+        await prisma.user.delete({ where: { id: user.id } });
+        return {
+          success: false,
+          message: `Failed to create driver profile: ${driverResult.message}`,
+        };
+      }
+
+      driverProfile = driverResult.data;
+    }
+
     // Create JWT token
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || "", { expiresIn: "7d" });
 
     return {
       user,
       studentProfile,
+      driverProfile,
       token,
       success: true,
       message: data.studentProfile
         ? "User and student profile created successfully"
+        : data.driverProfile
+        ? "User and driver profile created successfully"
         : "User created successfully",
     };
   } catch (error) {
@@ -120,7 +167,7 @@ async function login(email: string, password: string, role: string) {
     if (!user) return { success: false, message: "Invalid credentials" };
 
     // Check if user role matches the required role
-    if (user.role !== role) {
+    if (!["admin", "driver", "passenger"].includes(user.role)) {
       return {
         success: false,
         message: "Access denied: Invalid role for this login",

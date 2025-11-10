@@ -32,6 +32,7 @@ export interface CreateUserData {
     gender?: "male" | "female" | "other";
   } | null;
   studentProfile?: CreateStudentProfileData;
+  driverProfile?: CreateDriverProfileData;
 }
 
 export interface CreateStudentProfileData {
@@ -43,6 +44,15 @@ export interface CreateStudentProfileData {
   emergencyContactName?: string;
   emergencyContactNumber?: string;
   studentIdPhoto?: string;
+}
+
+export interface CreateDriverProfileData {
+  username: string;
+  address: string;
+  age: number;
+  contactNumber: string;
+  licensePhoto?: string;
+  validIdPhoto?: string;
 }
 
 export interface UpdateUserData {
