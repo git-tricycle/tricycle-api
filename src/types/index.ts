@@ -31,6 +31,18 @@ export interface CreateUserData {
     age?: number;
     gender?: "male" | "female" | "other";
   } | null;
+  studentProfile?: CreateStudentProfileData;
+}
+
+export interface CreateStudentProfileData {
+  studentId: string;
+  dateOfBirth: Date | string;
+  course?: string;
+  yearLevel?: string;
+  schoolEmail?: string;
+  emergencyContactName?: string;
+  emergencyContactNumber?: string;
+  studentIdPhoto?: string;
 }
 
 export interface UpdateUserData {

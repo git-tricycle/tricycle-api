@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { CreateUserData } from "../types";
 import { getPrismaClient } from "../lib/db.connection";
+import studentService from "./student.service";
 
 const prisma = getPrismaClient();
 
@@ -23,6 +24,17 @@ async function register(data: CreateUserData) {
       return { success: false, message: "User already exists" };
     }
 
+    // If student profile data is provided, validate student ID uniqueness
+    if (data.studentProfile) {
+      const existingStudent = await prisma.studentProfile.findUnique({
+        where: { studentId: data.studentProfile.studentId },
+      });
+
+      if (existingStudent) {
+        return { success: false, message: "Student ID already exists" };
+      }
+    }
+
     // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(data.password, salt);
@@ -35,7 +47,7 @@ async function register(data: CreateUserData) {
         middleName: data.middleName,
         email: data.email,
         password: hashedPassword,
-        role: data.role,
+        role: data.role || (data.studentProfile ? "passenger" : undefined),
         status: data.status,
         ...(data.metadata && { metadata: data.metadata }),
       },
@@ -50,10 +62,48 @@ async function register(data: CreateUserData) {
       },
     });
 
+    let studentProfile = null;
+
+    // Create student profile if data is provided
+    if (data.studentProfile) {
+      const studentResult = await studentService.createStudent({
+        studentId: data.studentProfile.studentId,
+        dateOfBirth: new Date(data.studentProfile.dateOfBirth),
+        course: data.studentProfile.course,
+        yearLevel: data.studentProfile.yearLevel,
+        schoolEmail: data.studentProfile.schoolEmail,
+        emergencyContactName: data.studentProfile.emergencyContactName,
+        emergencyContactNumber: data.studentProfile.emergencyContactNumber,
+        studentIdPhoto: data.studentProfile.studentIdPhoto,
+        user: {
+          connect: { id: user.id },
+        },
+      });
+
+      if (!studentResult.success) {
+        // Rollback user creation if student creation fails
+        await prisma.user.delete({ where: { id: user.id } });
+        return {
+          success: false,
+          message: `Failed to create student profile: ${studentResult.message}`,
+        };
+      }
+
+      studentProfile = studentResult.data;
+    }
+
     // Create JWT token
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || "", { expiresIn: "7d" });
 
-    return { user, token, success: true, message: "User created successfully" };
+    return {
+      user,
+      studentProfile,
+      token,
+      success: true,
+      message: data.studentProfile
+        ? "User and student profile created successfully"
+        : "User created successfully",
+    };
   } catch (error) {
     console.error("Register error:", error);
     return { success: false, message: "Server error" };
