@@ -52,19 +52,6 @@ async function getAllStudents(req: Request, res: Response) {
       });
     }
 
-    // Build dynamic filters from query parameters (format: filter_fieldName)
-    const filters: Record<string, any> = {};
-
-    Object.keys(req.query).forEach((key) => {
-      if (key.startsWith("filter_")) {
-        const fieldName = key.replace("filter_", "");
-        const value = req.query[key];
-        if (value && typeof value === "string") {
-          filters[fieldName] = value;
-        }
-      }
-    });
-
     const params = {
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
@@ -72,7 +59,7 @@ async function getAllStudents(req: Request, res: Response) {
       order: order as "asc" | "desc",
       fields: fields as string,
       query: query as string,
-      filters: Object.keys(filters).length > 0 ? filters : undefined,
+      reqQuery: req.query,
     };
 
     const result = await studentService.getAllStudents(params);

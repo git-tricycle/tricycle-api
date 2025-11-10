@@ -21,9 +21,37 @@ async function getAllStudents(params?: {
   fields?: string;
   query?: string;
   filters?: Record<string, any>;
+  reqQuery?: Record<string, any>;
 }) {
   try {
-    const { page = 1, limit = 10, sort, order = "desc", fields, query, filters } = params || {};
+    const {
+      page = 1,
+      limit = 10,
+      sort,
+      order = "desc",
+      fields,
+      query,
+      filters,
+      reqQuery,
+    } = params || {};
+
+    // Build dynamic filters from query parameters (format: filter_fieldName)
+    let dynamicFilters: Record<string, any> = {};
+
+    if (reqQuery) {
+      Object.keys(reqQuery).forEach((key) => {
+        if (key.startsWith("filter_")) {
+          const fieldName = key.replace("filter_", "");
+          const value = reqQuery[key];
+          if (value && typeof value === "string") {
+            dynamicFilters[fieldName] = value;
+          }
+        }
+      });
+    }
+
+    // Merge provided filters with dynamic filters
+    const combinedFilters = { ...filters, ...dynamicFilters };
 
     const skip = (page - 1) * limit;
 
@@ -40,7 +68,7 @@ async function getAllStudents(params?: {
           }
         : {}),
       // Apply dynamic filters
-      ...(filters || {}),
+      ...(combinedFilters || {}),
     };
 
     const findManyQuery: Prisma.StudentProfileFindManyArgs = {
