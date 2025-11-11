@@ -14,4 +14,5 @@ model Ride {
   passenger User     @relation("Passenger", fields: [passengerId], references: [id])
   driver    User?    @relation("Driver", fields: [driverId], references: [id])
   payment   Payment?
+  rating    Rating?
 }
