@@ -1,0 +1,12 @@
+model Rating {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  rideId      String   @unique @db.ObjectId
+  passengerId String
+  driverId    String
+  rating      Int
+  comment     String?
+  createdAt   DateTime @default(now())
+  isDeleted   Boolean  @default(false)
+
+  ride Ride @relation(fields: [rideId], references: [id])
+}
