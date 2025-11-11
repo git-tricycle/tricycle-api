@@ -1,0 +1,16 @@
+model Ride {
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  passengerId String     @db.ObjectId
+  driverId    String?    @db.ObjectId
+  pickup      String
+  dropoff     String
+  fare        Float
+  paymentMode String
+  status      RideStatus @default(pending)
+  eta         Int?
+  createdAt   DateTime   @default(now())
+  isDeleted   Boolean    @default(false)
+
+  passenger User  @relation("Passenger", fields: [passengerId], references: [id])
+  driver    User? @relation("Driver", fields: [driverId], references: [id])
+}

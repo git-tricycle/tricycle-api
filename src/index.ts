@@ -10,6 +10,7 @@ import authRoutes from "./routes/auth.route";
 import studentRoutes from "./routes/student.route";
 import vehicleRoutes from "./routes/vehicle.route";
 import driverRoutes from "./routes/driver.route";
+import rideRoutes from "./routes/ride.route";
 
 // Import middleware
 import { errorHandler } from "./middleware/error.handler";
@@ -63,6 +64,7 @@ app.use("/api/user", userRoutes);
 app.use("/api/student", studentRoutes);
 app.use("/api/vehicle", vehicleRoutes);
 app.use("/api/driver", driverRoutes);
+app.use("/api/ride", rideRoutes);
 
 // Error handling middleware
 app.use(notFound);

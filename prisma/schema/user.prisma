@@ -15,4 +15,6 @@ model User {
 
   studentProfile StudentProfile?
   driverProfile  DriverProfile?
+  passengerRides Ride[]          @relation("Passenger")
+  driverRides    Ride[]          @relation("Driver")
 }

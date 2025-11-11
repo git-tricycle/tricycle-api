@@ -1,6 +1,6 @@
 model DriverProfile {
   id            String  @id @default(auto()) @map("_id") @db.ObjectId
-  userId        String  @unique
+  userId        String  @unique @db.ObjectId
   username      String  @unique
   address       String
   age           Int

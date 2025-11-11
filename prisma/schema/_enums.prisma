@@ -1,3 +1,4 @@
+// User
 enum Role {
   driver
   passenger
@@ -14,4 +15,13 @@ enum Gender {
   male
   female
   other
+}
+
+// Ride
+enum RideStatus {
+  pending
+  accepted
+  in_progress
+  completed
+  cancelled
 }
