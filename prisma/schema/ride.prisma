@@ -11,6 +11,7 @@ model Ride {
   createdAt   DateTime   @default(now())
   isDeleted   Boolean    @default(false)
 
-  passenger User  @relation("Passenger", fields: [passengerId], references: [id])
-  driver    User? @relation("Driver", fields: [driverId], references: [id])
+  passenger User     @relation("Passenger", fields: [passengerId], references: [id])
+  driver    User?    @relation("Driver", fields: [driverId], references: [id])
+  payment   Payment?
 }

@@ -25,3 +25,9 @@ enum RideStatus {
   completed
   cancelled
 }
+
+// Payment
+enum PaymentType {
+  cash
+  gcash
+}

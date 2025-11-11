@@ -1,0 +1,11 @@
+model Payment {
+  id        String      @id @default(auto()) @map("_id") @db.ObjectId
+  rideId    String      @unique @db.ObjectId
+  amount    Float
+  type      PaymentType
+  isPaid    Boolean     @default(false)
+  createdAt DateTime    @default(now())
+  isDeleted Boolean     @default(false)
+
+  ride Ride @relation(fields: [rideId], references: [id])
+}

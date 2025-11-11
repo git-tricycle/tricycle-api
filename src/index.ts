@@ -11,6 +11,7 @@ import studentRoutes from "./routes/student.route";
 import vehicleRoutes from "./routes/vehicle.route";
 import driverRoutes from "./routes/driver.route";
 import rideRoutes from "./routes/ride.route";
+import paymentRoutes from "./routes/payment.route";
 
 // Import middleware
 import { errorHandler } from "./middleware/error.handler";
@@ -37,10 +38,7 @@ const limiter = rateLimit({
 app.use(helmet());
 app.use(
   cors({
-    origin:
-      process.env.FRONTEND_URL ||
-      "https://nextjs-template-frontend.vercel.app" ||
-      "http://localhost:3000",
+    origin: process.env.FRONTEND_URL || "https://nextjs-template-frontend.vercel.app" || "http://localhost:3000",
     credentials: true,
   })
 );
@@ -65,6 +63,7 @@ app.use("/api/student", studentRoutes);
 app.use("/api/vehicle", vehicleRoutes);
 app.use("/api/driver", driverRoutes);
 app.use("/api/ride", rideRoutes);
+app.use("/api/payment", paymentRoutes);
 
 // Error handling middleware
 app.use(notFound);
