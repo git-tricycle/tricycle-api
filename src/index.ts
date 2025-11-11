@@ -12,6 +12,8 @@ import vehicleRoutes from "./routes/vehicle.route";
 import driverRoutes from "./routes/driver.route";
 import rideRoutes from "./routes/ride.route";
 import paymentRoutes from "./routes/payment.route";
+import ratingRoutes from "./routes/rating.route";
+import locationRoutes from "./routes/location.route";
 
 // Import middleware
 import { errorHandler } from "./middleware/error.handler";
@@ -64,6 +66,8 @@ app.use("/api/vehicle", vehicleRoutes);
 app.use("/api/driver", driverRoutes);
 app.use("/api/ride", rideRoutes);
 app.use("/api/payment", paymentRoutes);
+app.use("/api/rating", ratingRoutes);
+app.use("/api/location", locationRoutes);
 
 // Error handling middleware
 app.use(notFound);

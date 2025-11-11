@@ -148,7 +148,7 @@ async function getRideById(req: Request, res: Response) {
 // @access  Private
 async function createRide(req: Request, res: Response) {
   try {
-    const { pickup, dropoff, fare, paymentMode, eta } = req.body;
+    const { pickup, dropoff, fare, paymentMode, locationId, eta } = req.body;
 
     // Get passenger ID from authenticated user
     const passengerId = req.user?.id;
@@ -194,6 +194,7 @@ async function createRide(req: Request, res: Response) {
       dropoff,
       fare: Number(fare),
       paymentMode,
+      locationId: locationId || undefined,
       eta: eta ? Number(eta) : undefined,
     });
 
@@ -226,7 +227,7 @@ async function createRide(req: Request, res: Response) {
 async function updateRide(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const { fare, paymentMode, eta } = req.body;
+    const { fare, paymentMode, locationId, eta } = req.body;
 
     if (!id) {
       logError("Missing ID parameter", "ID is required", req);
@@ -257,6 +258,7 @@ async function updateRide(req: Request, res: Response) {
     const updateData: any = {};
     if (fare !== undefined) updateData.fare = Number(fare);
     if (paymentMode) updateData.paymentMode = paymentMode;
+    if (locationId !== undefined) updateData.locationId = locationId;
     if (eta !== undefined) updateData.eta = Number(eta);
 
     const result = await rideService.updateRide(id, updateData);
