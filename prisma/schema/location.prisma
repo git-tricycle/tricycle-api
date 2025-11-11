@@ -1,0 +1,11 @@
+model Location {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @unique @db.ObjectId
+  latitude  Float
+  longitude Float
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  user  User   @relation(fields: [userId], references: [id])
+  rides Ride[] @relation("Location")
+}

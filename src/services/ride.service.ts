@@ -30,16 +30,7 @@ async function getAllRides(params?: {
   reqQuery?: Record<string, any>;
 }) {
   try {
-    const {
-      page = 1,
-      limit = 10,
-      sort,
-      order = "desc",
-      fields,
-      query,
-      filters,
-      reqQuery,
-    } = params || {};
+    const { page = 1, limit = 10, sort, order = "desc", fields, query, filters, reqQuery } = params || {};
 
     // Build dynamic filters from query parameters (format: filter_fieldName)
     let dynamicFilters: Record<string, any> = {};
@@ -110,34 +101,7 @@ async function getAllRides(params?: {
           },
           { id: true } as Record<string, any>
         )
-      : {
-          id: true,
-          passengerId: true,
-          driverId: true,
-          pickup: true,
-          dropoff: true,
-          fare: true,
-          paymentMode: true,
-          status: true,
-          eta: true,
-          createdAt: true,
-          passenger: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-            },
-          },
-          driver: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-            },
-          },
-        };
+      : { id: true };
 
     findManyQuery.select = fieldSelections;
 
@@ -198,34 +162,7 @@ async function getRideById(id: string, fields?: string) {
           },
           { id: true } as Record<string, any>
         )
-      : {
-          id: true,
-          passengerId: true,
-          driverId: true,
-          pickup: true,
-          dropoff: true,
-          fare: true,
-          paymentMode: true,
-          status: true,
-          eta: true,
-          createdAt: true,
-          passenger: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-            },
-          },
-          driver: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-            },
-          },
-        };
+      : { id: true };
 
     query.select = fieldSelections;
 
@@ -258,6 +195,7 @@ async function createRide(data: {
   dropoff: string;
   fare: number;
   paymentMode: string;
+  locationId?: string;
   eta?: number;
 }) {
   try {
@@ -278,12 +216,14 @@ async function createRide(data: {
         dropoff: data.dropoff,
         fare: data.fare,
         paymentMode: data.paymentMode,
+        locationId: data.locationId,
         eta: data.eta,
       },
       select: {
         id: true,
         passengerId: true,
         driverId: true,
+        locationId: true,
         pickup: true,
         dropoff: true,
         fare: true,
@@ -297,6 +237,14 @@ async function createRide(data: {
             firstName: true,
             lastName: true,
             email: true,
+          },
+        },
+        location: {
+          select: {
+            id: true,
+            latitude: true,
+            longitude: true,
+            updatedAt: true,
           },
         },
       },
@@ -337,6 +285,7 @@ async function updateRide(id: string, data: Prisma.RideUpdateInput) {
         id: true,
         passengerId: true,
         driverId: true,
+        locationId: true,
         pickup: true,
         dropoff: true,
         fare: true,
@@ -358,6 +307,14 @@ async function updateRide(id: string, data: Prisma.RideUpdateInput) {
             firstName: true,
             lastName: true,
             email: true,
+          },
+        },
+        location: {
+          select: {
+            id: true,
+            latitude: true,
+            longitude: true,
+            updatedAt: true,
           },
         },
       },
@@ -453,6 +410,7 @@ async function acceptRide(id: string, driverId: string) {
         id: true,
         passengerId: true,
         driverId: true,
+        locationId: true,
         pickup: true,
         dropoff: true,
         fare: true,
@@ -474,6 +432,14 @@ async function acceptRide(id: string, driverId: string) {
             firstName: true,
             lastName: true,
             email: true,
+          },
+        },
+        location: {
+          select: {
+            id: true,
+            latitude: true,
+            longitude: true,
+            updatedAt: true,
           },
         },
       },
@@ -689,6 +655,7 @@ async function getRidesByPassenger(
         orderBy: { createdAt: "desc" },
         select: {
           id: true,
+          locationId: true,
           pickup: true,
           dropoff: true,
           fare: true,
@@ -702,6 +669,14 @@ async function getRidesByPassenger(
               firstName: true,
               lastName: true,
               email: true,
+            },
+          },
+          location: {
+            select: {
+              id: true,
+              latitude: true,
+              longitude: true,
+              updatedAt: true,
             },
           },
         },
@@ -756,6 +731,7 @@ async function getRidesByDriver(
         orderBy: { createdAt: "desc" },
         select: {
           id: true,
+          locationId: true,
           pickup: true,
           dropoff: true,
           fare: true,
@@ -769,6 +745,14 @@ async function getRidesByDriver(
               firstName: true,
               lastName: true,
               email: true,
+            },
+          },
+          location: {
+            select: {
+              id: true,
+              latitude: true,
+              longitude: true,
+              updatedAt: true,
             },
           },
         },
