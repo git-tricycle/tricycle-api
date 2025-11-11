@@ -40,7 +40,16 @@ const limiter = rateLimit({
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "https://nextjs-template-frontend.vercel.app" || "http://localhost:3000",
+    origin: [
+      process.env.FRONTEND_URL || "http://localhost:3000",
+      "https://nextjs-template-frontend.vercel.app",
+      "http://localhost:8081", // Expo dev server
+      "http://localhost:19000", // Expo dev server alternative
+      "http://localhost:19006", // Expo web
+      "exp://localhost:19000", // Expo mobile
+      "http://10.0.2.2:5000", // Android emulator localhost
+      "http://127.0.0.1:5000", // iOS simulator localhost
+    ],
     credentials: true,
   })
 );
