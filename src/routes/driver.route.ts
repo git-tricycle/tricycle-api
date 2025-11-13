@@ -1,15 +1,17 @@
 import express, { Request, Response } from "express";
 import { authenticate } from "../middleware/auth";
 import { logError, logInfo } from "../middleware/logger";
-import { requireDeletePermission, requireWritePermission } from "../middleware/rbac";
+import { requireDeletePermission } from "../middleware/rbac";
 import driverService from "../services/driver.service";
 
 const router = express.Router();
 
 router.get("/", authenticate, getAllDrivers);
 router.post("/", createDriver);
+router.patch("/status", authenticate, updateDriverStatus);
+router.patch("/location", authenticate, updateDriverLocation);
 router.get("/:id", authenticate, getDriverById);
-router.patch("/:id", authenticate, requireWritePermission, updateDriver);
+router.patch("/:id", authenticate, updateDriver);
 router.put("/:id", authenticate, requireDeletePermission, deleteDriver);
 
 // @route   GET /api/driver
@@ -241,6 +243,110 @@ async function deleteDriver(req: Request, res: Response) {
         message: "Insufficient permissions",
       });
     }
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+}
+
+// @route   PATCH /api/driver/status
+// @desc    Update driver online/offline status
+// @access  Private
+async function updateDriverStatus(req: Request, res: Response) {
+  try {
+    const { isOnline } = req.body;
+    const userId = (req as any).user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "User not authenticated",
+      });
+    }
+
+    if (typeof isOnline !== "boolean") {
+      logError("Invalid isOnline parameter", `isOnline: ${isOnline}`, req);
+      return res.status(400).json({
+        success: false,
+        message: "isOnline must be a boolean value",
+      });
+    }
+
+    const result = await driverService.updateDriverStatus(userId, isOnline);
+
+    if (!result.success) {
+      logError(`Failed to update driver status: ${userId}`, result.message, req);
+      return res.status(400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    logInfo(`Successfully updated driver status: ${userId} - Online: ${isOnline}`, req);
+    res.json({
+      success: true,
+      message: result.message,
+      data: result.data,
+    });
+  } catch (error) {
+    logError("Update driver status error", error, req);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+}
+
+// @route   PATCH /api/driver/location
+// @desc    Update driver current location
+// @access  Private
+async function updateDriverLocation(req: Request, res: Response) {
+  try {
+    const { latitude, longitude } = req.body;
+    const userId = (req as any).user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "User not authenticated",
+      });
+    }
+
+    if (typeof latitude !== "number" || typeof longitude !== "number") {
+      logError("Invalid location parameters", `lat: ${latitude}, lng: ${longitude}`, req);
+      return res.status(400).json({
+        success: false,
+        message: "Latitude and longitude must be valid numbers",
+      });
+    }
+
+    // Basic coordinate validation
+    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid coordinates provided",
+      });
+    }
+
+    const result = await driverService.updateDriverLocation(userId, { latitude, longitude });
+
+    if (!result.success) {
+      logError(`Failed to update driver location: ${userId}`, result.message, req);
+      return res.status(400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    logInfo(`Successfully updated driver location: ${userId}`, req);
+    res.json({
+      success: true,
+      message: result.message,
+      data: result.data,
+    });
+  } catch (error) {
+    logError("Update driver location error", error, req);
     res.status(500).json({
       success: false,
       message: "Server error",

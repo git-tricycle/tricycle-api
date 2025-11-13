@@ -150,7 +150,45 @@ async function getRideById(id: string, fields?: string) {
       },
     };
 
-    // Handle field selection - default to basic fields if no fields specified
+    const defaultSelections: Record<string, any> = {
+      id: true,
+      passengerId: true,
+      driverId: true,
+      locationId: true,
+      pickup: true,
+      dropoff: true,
+      fare: true,
+      paymentMode: true,
+      status: true,
+      eta: true,
+      createdAt: true,
+      passenger: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+      },
+      driver: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+      },
+      location: {
+        select: {
+          id: true,
+          latitude: true,
+          longitude: true,
+          updatedAt: true,
+        },
+      },
+    };
+
+    // Handle field selection - default to core ride fields if no fields specified
     const fieldSelections = fields
       ? fields.split(",").reduce(
           (acc, field) => {
@@ -170,9 +208,9 @@ async function getRideById(id: string, fields?: string) {
             }
             return acc;
           },
-          { id: true } as Record<string, any>
+          { ...defaultSelections } as Record<string, any>
         )
-      : { id: true };
+      : defaultSelections;
 
     query.select = fieldSelections;
 
@@ -545,7 +583,16 @@ async function startRide(id: string) {
       },
       select: {
         id: true,
+        passengerId: true,
+        driverId: true,
+        locationId: true,
+        pickup: true,
+        dropoff: true,
+        fare: true,
+        paymentMode: true,
         status: true,
+        eta: true,
+        createdAt: true,
         passenger: {
           select: {
             id: true,
@@ -560,6 +607,14 @@ async function startRide(id: string) {
             firstName: true,
             lastName: true,
             email: true,
+          },
+        },
+        location: {
+          select: {
+            id: true,
+            latitude: true,
+            longitude: true,
+            updatedAt: true,
           },
         },
       },
@@ -605,7 +660,16 @@ async function completeRide(id: string) {
       },
       select: {
         id: true,
+        passengerId: true,
+        driverId: true,
+        locationId: true,
+        pickup: true,
+        dropoff: true,
+        fare: true,
+        paymentMode: true,
         status: true,
+        eta: true,
+        createdAt: true,
         passenger: {
           select: {
             id: true,
@@ -620,6 +684,14 @@ async function completeRide(id: string) {
             firstName: true,
             lastName: true,
             email: true,
+          },
+        },
+        location: {
+          select: {
+            id: true,
+            latitude: true,
+            longitude: true,
+            updatedAt: true,
           },
         },
       },
@@ -645,10 +717,11 @@ async function getRidesByPassenger(
     page?: number;
     limit?: number;
     status?: string;
+    fields?: string;
   }
 ) {
   try {
-    const { page = 1, limit = 10, status } = params || {};
+    const { page = 1, limit = 10, status, fields } = params || {};
     const skip = (page - 1) * limit;
 
     const whereClause: Prisma.RideWhereInput = {
@@ -657,13 +730,36 @@ async function getRidesByPassenger(
       ...(status ? { status: status as any } : {}),
     };
 
-    const [rides, total] = await Promise.all([
-      prisma.ride.findMany({
-        where: whereClause,
-        skip,
-        take: limit,
-        orderBy: { createdAt: "desc" },
-        select: {
+    const findManyQuery: Prisma.RideFindManyArgs = {
+      where: whereClause,
+      skip,
+      take: limit,
+      orderBy: { createdAt: "desc" },
+    };
+
+    // Handle field selection - default to basic fields if no fields specified
+    const fieldSelections = fields
+      ? fields.split(",").reduce(
+          (acc, field) => {
+            const parts = field.trim().split(".");
+            if (parts.length > 1) {
+              const [parent, ...children] = parts;
+              acc[parent] = acc[parent] || { select: {} };
+
+              let current = acc[parent].select;
+              for (let i = 0; i < children.length - 1; i++) {
+                current[children[i]] = current[children[i]] || { select: {} };
+                current = current[children[i]].select;
+              }
+              current[children[children.length - 1]] = true;
+            } else {
+              acc[parts[0]] = true;
+            }
+            return acc;
+          },
+          { id: true } as Record<string, any>
+        )
+      : {
           id: true,
           locationId: true,
           pickup: true,
@@ -681,16 +777,12 @@ async function getRidesByPassenger(
               email: true,
             },
           },
-          location: {
-            select: {
-              id: true,
-              latitude: true,
-              longitude: true,
-              updatedAt: true,
-            },
-          },
-        },
-      }),
+        };
+
+    findManyQuery.select = fieldSelections;
+
+    const [rides, total] = await Promise.all([
+      prisma.ride.findMany(findManyQuery),
       prisma.ride.count({ where: whereClause }),
     ]);
 
@@ -721,10 +813,11 @@ async function getRidesByDriver(
     page?: number;
     limit?: number;
     status?: string;
+    fields?: string;
   }
 ) {
   try {
-    const { page = 1, limit = 10, status } = params || {};
+    const { page = 1, limit = 10, status, fields } = params || {};
     const skip = (page - 1) * limit;
 
     const whereClause: Prisma.RideWhereInput = {
@@ -733,13 +826,36 @@ async function getRidesByDriver(
       ...(status ? { status: status as any } : {}),
     };
 
-    const [rides, total] = await Promise.all([
-      prisma.ride.findMany({
-        where: whereClause,
-        skip,
-        take: limit,
-        orderBy: { createdAt: "desc" },
-        select: {
+    const findManyQuery: Prisma.RideFindManyArgs = {
+      where: whereClause,
+      skip,
+      take: limit,
+      orderBy: { createdAt: "desc" },
+    };
+
+    // Handle field selection - default to basic fields if no fields specified
+    const fieldSelections = fields
+      ? fields.split(",").reduce(
+          (acc, field) => {
+            const parts = field.trim().split(".");
+            if (parts.length > 1) {
+              const [parent, ...children] = parts;
+              acc[parent] = acc[parent] || { select: {} };
+
+              let current = acc[parent].select;
+              for (let i = 0; i < children.length - 1; i++) {
+                current[children[i]] = current[children[i]] || { select: {} };
+                current = current[children[i]].select;
+              }
+              current[children[children.length - 1]] = true;
+            } else {
+              acc[parts[0]] = true;
+            }
+            return acc;
+          },
+          { id: true } as Record<string, any>
+        )
+      : {
           id: true,
           locationId: true,
           pickup: true,
@@ -757,16 +873,12 @@ async function getRidesByDriver(
               email: true,
             },
           },
-          location: {
-            select: {
-              id: true,
-              latitude: true,
-              longitude: true,
-              updatedAt: true,
-            },
-          },
-        },
-      }),
+        };
+
+    findManyQuery.select = fieldSelections;
+
+    const [rides, total] = await Promise.all([
+      prisma.ride.findMany(findManyQuery),
       prisma.ride.count({ where: whereClause }),
     ]);
 

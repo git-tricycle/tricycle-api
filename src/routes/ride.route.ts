@@ -513,7 +513,7 @@ async function completeRide(req: Request, res: Response) {
 async function getRidesByPassenger(req: Request, res: Response) {
   try {
     const { passengerId } = req.params;
-    const { page, limit, status } = req.query;
+    const { page, limit, status, fields } = req.query;
 
     if (!passengerId) {
       logError("Missing passengerId parameter", "Passenger ID is required", req);
@@ -544,6 +544,7 @@ async function getRidesByPassenger(req: Request, res: Response) {
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
       status: status as string,
+      fields: fields as string,
     };
 
     const result = await rideService.getRidesByPassenger(passengerId, params);
@@ -642,7 +643,7 @@ async function getAvailableDrivers(req: Request, res: Response) {
 async function getRidesByDriver(req: Request, res: Response) {
   try {
     const { driverId } = req.params;
-    const { page, limit, status } = req.query;
+    const { page, limit, status, fields } = req.query;
 
     if (!driverId) {
       logError("Missing driverId parameter", "Driver ID is required", req);
@@ -673,6 +674,7 @@ async function getRidesByDriver(req: Request, res: Response) {
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
       status: status as string,
+      fields: fields as string,
     };
 
     const result = await rideService.getRidesByDriver(driverId, params);

@@ -6,6 +6,7 @@ const prisma = getPrismaClient();
 const vehicleService = {
   getAllVehicles,
   getVehicleById,
+  getVehicleByDriverId,
   createVehicle,
   updateVehicle,
   deleteVehicle,
@@ -309,6 +310,61 @@ async function deleteVehicle(id: string) {
     };
   } catch (error) {
     console.error("Delete vehicle error:", error);
+    return {
+      success: false,
+      message: "Server error",
+    };
+  }
+}
+
+async function getVehicleByDriverId(driverId: string) {
+  try {
+    // First try to find by driver profile ID, then by userId
+    const vehicle = await prisma.vehicle.findFirst({
+      where: {
+        OR: [
+          { driverId, isDeleted: false },
+          {
+            driver: {
+              userId: driverId,
+              isDeleted: false,
+            },
+            isDeleted: false,
+          },
+        ],
+      },
+      select: {
+        id: true,
+        driverId: true,
+        plateNumber: true,
+        bodyNumber: true,
+        vehiclePhoto: true,
+        orCrPhoto: true,
+        isApproved: true,
+        driver: {
+          select: {
+            id: true,
+            username: true,
+            contactNumber: true,
+          },
+        },
+      },
+    });
+
+    if (!vehicle) {
+      return {
+        success: false,
+        message: "Vehicle not found for this driver",
+      };
+    }
+
+    return {
+      success: true,
+      message: "Vehicle retrieved successfully",
+      data: vehicle,
+    };
+  } catch (error) {
+    console.error("Get vehicle by driver error:", error);
     return {
       success: false,
       message: "Server error",
