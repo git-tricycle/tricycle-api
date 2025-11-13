@@ -15,6 +15,7 @@ const rideService = {
   startRide,
   getRidesByPassenger,
   getRidesByDriver,
+  getAvailableDrivers,
 };
 
 export default rideService;
@@ -30,7 +31,16 @@ async function getAllRides(params?: {
   reqQuery?: Record<string, any>;
 }) {
   try {
-    const { page = 1, limit = 10, sort, order = "desc", fields, query, filters, reqQuery } = params || {};
+    const {
+      page = 1,
+      limit = 10,
+      sort,
+      order = "desc",
+      fields,
+      query,
+      filters,
+      reqQuery,
+    } = params || {};
 
     // Build dynamic filters from query parameters (format: filter_fieldName)
     let dynamicFilters: Record<string, any> = {};
@@ -774,6 +784,100 @@ async function getRidesByDriver(
     };
   } catch (error) {
     console.error("Get driver rides error:", error);
+    return {
+      success: false,
+      message: "Server error",
+    };
+  }
+}
+
+async function getAvailableDrivers(params?: {
+  latitude?: number;
+  longitude?: number;
+  limit?: number;
+}) {
+  try {
+    const { latitude, longitude, limit = 10 } = params || {};
+
+    // Find drivers who are active and don't have ongoing rides
+    const availableDrivers = await prisma.user.findMany({
+      where: {
+        role: "driver",
+        status: "active",
+        isDeleted: false,
+        driverProfile: {
+          isDeleted: false,
+          isVerified: true,
+        },
+        // Exclude drivers with ongoing rides
+        driverRides: {
+          none: {
+            status: {
+              in: ["pending", "accepted", "in_progress"],
+            },
+            isDeleted: false,
+          },
+        },
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        driverProfile: {
+          select: {
+            id: true,
+            username: true,
+            contactNumber: true,
+            vehicle: {
+              select: {
+                plateNumber: true,
+                bodyNumber: true,
+              },
+            },
+          },
+        },
+        location: {
+          select: {
+            latitude: true,
+            longitude: true,
+            updatedAt: true,
+          },
+        },
+      },
+      take: limit,
+    });
+
+    // Transform the data for better frontend consumption
+    const formattedDrivers = availableDrivers.map((driver) => ({
+      id: driver.id,
+      name: `${driver.firstName} ${driver.lastName}`,
+      email: driver.email,
+      username: driver.driverProfile?.username,
+      contactNumber: driver.driverProfile?.contactNumber,
+      vehicleNumber:
+        driver.driverProfile?.vehicle?.plateNumber ||
+        driver.driverProfile?.vehicle?.bodyNumber ||
+        "N/A",
+      location: driver.location
+        ? {
+            latitude: driver.location.latitude,
+            longitude: driver.location.longitude,
+            updatedAt: driver.location.updatedAt,
+          }
+        : null,
+      // Mock rating and estimated arrival for now
+      rating: 4.5 + Math.random() * 0.5, // Random rating between 4.5-5.0
+      estimatedArrival: Math.floor(Math.random() * 10) + 3, // Random 3-12 minutes
+    }));
+
+    return {
+      success: true,
+      message: "Available drivers retrieved successfully",
+      data: formattedDrivers,
+    };
+  } catch (error) {
+    console.error("Get available drivers error:", error);
     return {
       success: false,
       message: "Server error",

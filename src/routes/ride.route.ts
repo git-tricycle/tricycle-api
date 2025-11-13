@@ -8,6 +8,7 @@ const router = express.Router();
 
 router.get("/", authenticate, getAllRides);
 router.post("/", authenticate, createRide);
+router.get("/available-drivers", authenticate, getAvailableDrivers);
 router.get("/passenger/:passengerId", authenticate, getRidesByPassenger);
 router.get("/driver/:driverId", authenticate, getRidesByDriver);
 router.get("/:id", authenticate, getRideById);
@@ -567,6 +568,67 @@ async function getRidesByPassenger(req: Request, res: Response) {
     });
   } catch (error) {
     logError("Get passenger rides error", error, req);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+}
+
+// @route   GET /api/ride/available-drivers
+// @desc    Get available drivers for ride booking
+// @access  Private
+async function getAvailableDrivers(req: Request, res: Response) {
+  try {
+    const { latitude, longitude, limit = 10 } = req.query;
+
+    // Validate query parameters
+    if (latitude && isNaN(Number(latitude))) {
+      logError("Invalid latitude parameter", `Latitude: ${latitude}`, req);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid latitude parameter",
+      });
+    }
+
+    if (longitude && isNaN(Number(longitude))) {
+      logError("Invalid longitude parameter", `Longitude: ${longitude}`, req);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid longitude parameter",
+      });
+    }
+
+    if (isNaN(Number(limit)) || Number(limit) < 1) {
+      logError("Invalid limit parameter", `Limit: ${limit}`, req);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid limit parameter",
+      });
+    }
+
+    const result = await rideService.getAvailableDrivers({
+      latitude: latitude ? Number(latitude) : undefined,
+      longitude: longitude ? Number(longitude) : undefined,
+      limit: Number(limit),
+    });
+
+    if (!result.success) {
+      logError("Failed to fetch available drivers", result.message, req);
+      return res.status(500).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    logInfo(`Successfully retrieved ${result.data?.length || 0} available drivers`, req);
+    res.json({
+      success: true,
+      message: result.message,
+      data: result.data,
+    });
+  } catch (error) {
+    logError("Get available drivers error", error, req);
     res.status(500).json({
       success: false,
       message: "Server error",
