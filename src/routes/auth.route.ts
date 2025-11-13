@@ -23,6 +23,7 @@ async function register(req: Request, res: Response) {
       metadata,
       studentProfile,
       driverProfile,
+      vehicleData,
     } = req.body;
 
     const result = await authService.register({
@@ -36,6 +37,7 @@ async function register(req: Request, res: Response) {
       metadata,
       studentProfile,
       driverProfile,
+      vehicleData,
     });
 
     if (!result.success) {
@@ -94,9 +96,14 @@ async function login(req: Request, res: Response) {
       message: result.message,
       data: {
         user: {
+          id: result.data?.user.id,
           firstName: result.data?.user.firstName,
           lastName: result.data?.user.lastName,
           middleName: result.data?.user.middleName,
+          email: result.data?.user.email,
+          role: result.data?.user.role,
+          status: result.data?.user.status,
+          createdAt: result.data?.user.createdAt,
         },
         token: result.data?.token,
       },

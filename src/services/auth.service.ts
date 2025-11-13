@@ -4,6 +4,7 @@ import { CreateUserData } from "../types";
 import { getPrismaClient } from "../lib/db.connection";
 import studentService from "./student.service";
 import driverService from "./driver.service";
+import vehicleService from "./vehicle.service";
 
 const prisma = getPrismaClient();
 
@@ -134,6 +135,26 @@ async function register(data: CreateUserData) {
       }
 
       driverProfile = driverResult.data;
+
+      // Create vehicle if vehicle data is provided and driver profile was created successfully
+      if (data.vehicleData && driverProfile) {
+        const vehicleResult = await vehicleService.createVehicle({
+          plateNumber: data.vehicleData.plateNumber,
+          bodyNumber: data.vehicleData.bodyNumber,
+          vehiclePhoto: data.vehicleData.vehiclePhoto,
+          orCrPhoto: data.vehicleData.orCrPhoto,
+          driverId: driverProfile.id,
+        });
+
+        if (!vehicleResult.success) {
+          // Rollback user and driver creation if vehicle creation fails
+          await prisma.user.delete({ where: { id: user.id } });
+          return {
+            success: false,
+            message: `Failed to create vehicle: ${vehicleResult.message}`,
+          };
+        }
+      }
     }
 
     // Create JWT token
@@ -197,6 +218,7 @@ async function login(email: string, password: string, role: string) {
           middleName: user.middleName,
           email: user.email,
           role: user.role,
+          status: user.status,
           createdAt: user.createdAt,
         },
         token,

@@ -9,6 +9,8 @@ const driverService = {
   createDriver,
   updateDriver,
   deleteDriver,
+  updateDriverStatus,
+  updateDriverLocation,
 };
 
 export default driverService;
@@ -132,10 +134,13 @@ async function getAllDrivers(params?: {
 
 async function getDriverById(id: string, fields?: string) {
   try {
-    const query: Prisma.DriverProfileFindUniqueArgs = {
+    // First try to find by driver profile ID, then by userId
+    const query: Prisma.DriverProfileFindFirstArgs = {
       where: {
-        id,
-        isDeleted: false,
+        OR: [
+          { id, isDeleted: false },
+          { userId: id, isDeleted: false },
+        ],
       },
     };
 
@@ -165,7 +170,11 @@ async function getDriverById(id: string, fields?: string) {
 
     query.select = fieldSelections;
 
-    const driver = await prisma.driverProfile.findUnique(query);
+    console.log("Field selections:", JSON.stringify(fieldSelections, null, 2));
+
+    const driver = await prisma.driverProfile.findFirst(query);
+
+    console.log("Driver data returned:", JSON.stringify(driver, null, 2));
 
     if (!driver) {
       return {
@@ -312,6 +321,125 @@ async function deleteDriver(id: string) {
     };
   } catch (error) {
     console.error("Delete driver error:", error);
+    return {
+      success: false,
+      message: "Server error",
+    };
+  }
+}
+
+async function updateDriverStatus(userId: string, isOnline: boolean) {
+  try {
+    // First check if driver profile exists
+    const driverProfile = await prisma.driverProfile.findFirst({
+      where: {
+        userId,
+        isDeleted: false,
+      },
+    });
+
+    if (!driverProfile) {
+      return {
+        success: false,
+        message: "Driver profile not found",
+      };
+    }
+
+    // Update user status (online/offline)
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        status: isOnline ? "active" : "inactive",
+        updatedAt: new Date(),
+      },
+      select: {
+        id: true,
+        status: true,
+        updatedAt: true,
+      },
+    });
+
+    return {
+      success: true,
+      message: `Driver status updated to ${isOnline ? "online" : "offline"}`,
+      data: {
+        userId: updatedUser.id,
+        isOnline,
+        status: updatedUser.status,
+        updatedAt: updatedUser.updatedAt,
+      },
+    };
+  } catch (error) {
+    console.error("Update driver status error:", error);
+    return {
+      success: false,
+      message: "Server error",
+    };
+  }
+}
+
+async function updateDriverLocation(
+  userId: string,
+  location: { latitude: number; longitude: number }
+) {
+  try {
+    // First check if driver profile exists
+    const driverProfile = await prisma.driverProfile.findFirst({
+      where: {
+        userId,
+        isDeleted: false,
+      },
+    });
+
+    if (!driverProfile) {
+      return {
+        success: false,
+        message: "Driver profile not found",
+      };
+    }
+
+    // Create or update driver location
+    const existingLocation = await prisma.location.findFirst({
+      where: {
+        userId: userId,
+      },
+    });
+
+    let locationRecord;
+
+    if (existingLocation) {
+      // Update existing location
+      locationRecord = await prisma.location.update({
+        where: { id: existingLocation.id },
+        data: {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          updatedAt: new Date(),
+        },
+      });
+    } else {
+      // Create new location record
+      locationRecord = await prisma.location.create({
+        data: {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          userId: userId,
+        },
+      });
+    }
+
+    return {
+      success: true,
+      message: "Driver location updated successfully",
+      data: {
+        locationId: locationRecord.id,
+        latitude: locationRecord.latitude,
+        longitude: locationRecord.longitude,
+        updatedAt: locationRecord.updatedAt,
+      },
+    };
+  } catch (error) {
+    console.error("Update driver location error:", error);
     return {
       success: false,
       message: "Server error",

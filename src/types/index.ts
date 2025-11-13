@@ -33,6 +33,14 @@ export interface CreateUserData {
   } | null;
   studentProfile?: CreateStudentProfileData;
   driverProfile?: CreateDriverProfileData;
+  vehicleData?: CreateVehicleData;
+}
+
+export interface CreateVehicleData {
+  plateNumber: string;
+  bodyNumber: string;
+  vehiclePhoto?: string;
+  orCrPhoto?: string;
 }
 
 export interface CreateStudentProfileData {

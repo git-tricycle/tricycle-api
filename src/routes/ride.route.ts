@@ -8,6 +8,7 @@ const router = express.Router();
 
 router.get("/", authenticate, getAllRides);
 router.post("/", authenticate, createRide);
+router.get("/available-drivers", authenticate, getAvailableDrivers);
 router.get("/passenger/:passengerId", authenticate, getRidesByPassenger);
 router.get("/driver/:driverId", authenticate, getRidesByDriver);
 router.get("/:id", authenticate, getRideById);
@@ -512,7 +513,7 @@ async function completeRide(req: Request, res: Response) {
 async function getRidesByPassenger(req: Request, res: Response) {
   try {
     const { passengerId } = req.params;
-    const { page, limit, status } = req.query;
+    const { page, limit, status, fields } = req.query;
 
     if (!passengerId) {
       logError("Missing passengerId parameter", "Passenger ID is required", req);
@@ -543,6 +544,7 @@ async function getRidesByPassenger(req: Request, res: Response) {
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
       status: status as string,
+      fields: fields as string,
     };
 
     const result = await rideService.getRidesByPassenger(passengerId, params);
@@ -574,13 +576,74 @@ async function getRidesByPassenger(req: Request, res: Response) {
   }
 }
 
+// @route   GET /api/ride/available-drivers
+// @desc    Get available drivers for ride booking
+// @access  Private
+async function getAvailableDrivers(req: Request, res: Response) {
+  try {
+    const { latitude, longitude, limit = 10 } = req.query;
+
+    // Validate query parameters
+    if (latitude && isNaN(Number(latitude))) {
+      logError("Invalid latitude parameter", `Latitude: ${latitude}`, req);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid latitude parameter",
+      });
+    }
+
+    if (longitude && isNaN(Number(longitude))) {
+      logError("Invalid longitude parameter", `Longitude: ${longitude}`, req);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid longitude parameter",
+      });
+    }
+
+    if (isNaN(Number(limit)) || Number(limit) < 1) {
+      logError("Invalid limit parameter", `Limit: ${limit}`, req);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid limit parameter",
+      });
+    }
+
+    const result = await rideService.getAvailableDrivers({
+      latitude: latitude ? Number(latitude) : undefined,
+      longitude: longitude ? Number(longitude) : undefined,
+      limit: Number(limit),
+    });
+
+    if (!result.success) {
+      logError("Failed to fetch available drivers", result.message, req);
+      return res.status(500).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    logInfo(`Successfully retrieved ${result.data?.length || 0} available drivers`, req);
+    res.json({
+      success: true,
+      message: result.message,
+      data: result.data,
+    });
+  } catch (error) {
+    logError("Get available drivers error", error, req);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+}
+
 // @route   GET /api/ride/driver/:driverId
 // @desc    Get rides by driver ID
 // @access  Private
 async function getRidesByDriver(req: Request, res: Response) {
   try {
     const { driverId } = req.params;
-    const { page, limit, status } = req.query;
+    const { page, limit, status, fields } = req.query;
 
     if (!driverId) {
       logError("Missing driverId parameter", "Driver ID is required", req);
@@ -611,6 +674,7 @@ async function getRidesByDriver(req: Request, res: Response) {
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
       status: status as string,
+      fields: fields as string,
     };
 
     const result = await rideService.getRidesByDriver(driverId, params);

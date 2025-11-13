@@ -8,6 +8,7 @@ const router = express.Router();
 
 router.get("/", authenticate, getAllVehicles);
 router.post("/", createVehicle);
+router.get("/driver/:driverId", authenticate, getVehicleByDriverId);
 router.get("/:id", authenticate, getVehicleById);
 router.patch("/:id", authenticate, requireWritePermission, updateVehicle);
 router.put("/:id", authenticate, requireDeletePermission, deleteVehicle);
@@ -241,6 +242,46 @@ async function deleteVehicle(req: Request, res: Response) {
         message: "Insufficient permissions",
       });
     }
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+}
+
+// @route   GET /api/vehicle/driver/:driverId
+// @desc    Get vehicle by driver ID
+// @access  Private
+async function getVehicleByDriverId(req: Request, res: Response) {
+  try {
+    const { driverId } = req.params;
+
+    if (!driverId) {
+      logError("Missing driverId parameter", "Driver ID is required", req);
+      return res.status(400).json({
+        success: false,
+        message: "Driver ID is required",
+      });
+    }
+
+    const result = await vehicleService.getVehicleByDriverId(driverId);
+
+    if (!result.success) {
+      logError(`Vehicle not found for driver: ${driverId}`, result.message, req);
+      return res.status(404).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    logInfo(`Successfully retrieved vehicle for driver: ${driverId}`, req);
+    res.json({
+      success: true,
+      message: result.message,
+      data: result.data,
+    });
+  } catch (error) {
+    logError("Get vehicle by driver error", error, req);
     res.status(500).json({
       success: false,
       message: "Server error",
