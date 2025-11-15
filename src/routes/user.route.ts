@@ -9,8 +9,8 @@ const router = express.Router();
 router.get("/", authenticate, requireAdmin, getAllUsers);
 router.post("/admin", authenticate, requireAdmin, createUserAdmin);
 router.get("/:id", authenticate, getUserById);
-router.patch("/:id", authenticate, requireWritePermission, updateUser);
-router.put("/:id", authenticate, requireDeletePermission, deleteUser);
+router.patch("/:id", authenticate, updateUser);
+router.put("/:id", authenticate, deleteUser);
 
 // @route   GET /api/user
 // @desc    Get all users

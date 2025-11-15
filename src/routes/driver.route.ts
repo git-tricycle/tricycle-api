@@ -3,6 +3,7 @@ import { authenticate } from "../middleware/auth";
 import { logError, logInfo } from "../middleware/logger";
 import { requireDeletePermission } from "../middleware/rbac";
 import driverService from "../services/driver.service";
+import multerHelper from "../utils/multer";
 
 const router = express.Router();
 
@@ -10,6 +11,16 @@ router.get("/", authenticate, getAllDrivers);
 router.post("/", createDriver);
 router.patch("/status", authenticate, updateDriverStatus);
 router.patch("/location", authenticate, updateDriverLocation);
+router.post(
+  "/:id/upload-requirements",
+  authenticate,
+  multerHelper.upload.fields([
+    { name: "licensePhoto", maxCount: 1 },
+    { name: "validIdPhoto", maxCount: 1 },
+  ]),
+  uploadRequirements
+);
+router.delete("/:id/delete-requirements", authenticate, deleteRequirements);
 router.get("/:id", authenticate, getDriverById);
 router.patch("/:id", authenticate, updateDriver);
 router.put("/:id", authenticate, requireDeletePermission, deleteDriver);
@@ -347,6 +358,122 @@ async function updateDriverLocation(req: Request, res: Response) {
     });
   } catch (error) {
     logError("Update driver location error", error, req);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+}
+
+// @route   POST /api/driver/:id/upload-requirements
+// @desc    Upload driver requirements (license and valid ID photos)
+// @access  Private
+async function uploadRequirements(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+
+    if (!id) {
+      logError("Missing ID parameter", "ID is required", req);
+      return res.status(400).json({
+        success: false,
+        message: "Driver ID is required",
+      });
+    }
+
+    if (!files || (!files.licensePhoto && !files.validIdPhoto)) {
+      logError("No files provided", "At least one file is required", req);
+      return res.status(400).json({
+        success: false,
+        message: "At least one file (licensePhoto or validIdPhoto) is required",
+      });
+    }
+
+    // Extract files from multer fields format
+    const requirementFiles: {
+      licensePhoto?: Express.Multer.File;
+      validIdPhoto?: Express.Multer.File;
+    } = {};
+
+    if (files.licensePhoto && files.licensePhoto[0]) {
+      requirementFiles.licensePhoto = files.licensePhoto[0];
+    }
+
+    if (files.validIdPhoto && files.validIdPhoto[0]) {
+      requirementFiles.validIdPhoto = files.validIdPhoto[0];
+    }
+
+    const result = await driverService.uploadRequirements(id, requirementFiles);
+
+    if (!result.success) {
+      logError(`Failed to upload requirements for driver: ${id}`, result.message, req);
+      return res.status(400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    logInfo(`Successfully uploaded requirements for driver: ${id}`, req);
+    res.status(200).json({
+      success: true,
+      message: result.message,
+      data: result.data,
+    });
+  } catch (error) {
+    logError("Upload requirements error", error, req);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+}
+
+// @route   DELETE /api/driver/:id/delete-requirements
+// @desc    Delete driver requirements from Cloudinary
+// @access  Private
+async function deleteRequirements(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const { documentType } = req.query;
+
+    if (!id) {
+      logError("Missing ID parameter", "ID is required", req);
+      return res.status(400).json({
+        success: false,
+        message: "Driver ID is required",
+      });
+    }
+
+    // Validate document type if provided
+    if (documentType && !["license", "validId", "all"].includes(documentType as string)) {
+      logError("Invalid document type", `Document type: ${documentType}`, req);
+      return res.status(400).json({
+        success: false,
+        message: "Document type must be 'license', 'validId', or 'all'",
+      });
+    }
+
+    const result = await driverService.deleteRequirements(
+      id,
+      documentType as "license" | "validId" | "all" | undefined
+    );
+
+    if (!result.success) {
+      logError(`Failed to delete requirements for driver: ${id}`, result.message, req);
+      return res.status(400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    logInfo(`Successfully deleted requirements for driver: ${id}`, req);
+    res.status(200).json({
+      success: true,
+      message: result.message,
+      data: result.data,
+    });
+  } catch (error) {
+    logError("Delete requirements error", error, req);
     res.status(500).json({
       success: false,
       message: "Server error",
