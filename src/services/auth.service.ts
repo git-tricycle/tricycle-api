@@ -75,6 +75,8 @@ async function register(data: CreateUserData) {
         lastName: true,
         middleName: true,
         email: true,
+        role: true,
+        status: true,
         metadata: true,
         createdAt: true,
       },

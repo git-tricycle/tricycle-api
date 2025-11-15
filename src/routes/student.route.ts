@@ -1,16 +1,23 @@
 import express, { Request, Response } from "express";
 import { authenticate } from "../middleware/auth";
 import { logError, logInfo } from "../middleware/logger";
-import { requireDeletePermission, requireWritePermission } from "../middleware/rbac";
 import studentService from "../services/student.service";
+import multerHelper from "../utils/multer";
 
 const router = express.Router();
 
 router.get("/", authenticate, getAllStudents);
 router.post("/", createStudent);
+router.post(
+  "/:id/upload-student-id",
+  authenticate,
+  multerHelper.upload.single("studentIdPhoto"),
+  uploadStudentIDPhoto
+);
+router.delete("/:id/delete-student-id", authenticate, deleteStudentIDPhoto);
 router.get("/:id", authenticate, getStudentById);
-router.patch("/:id", authenticate, requireWritePermission, updateStudent);
-router.put("/:id", authenticate, requireDeletePermission, deleteStudent);
+router.patch("/:id", authenticate, updateStudent);
+router.put("/:id", authenticate, deleteStudent);
 
 // @route   GET /api/student
 // @desc    Get all students
@@ -241,6 +248,95 @@ async function deleteStudent(req: Request, res: Response) {
         message: "Insufficient permissions",
       });
     }
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+}
+
+// @route   POST /api/student/:id/upload-student-id
+// @desc    Upload student ID photo
+// @access  Private
+async function uploadStudentIDPhoto(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const file = req.file;
+
+    if (!id) {
+      logError("Missing ID parameter", "ID is required", req);
+      return res.status(400).json({
+        success: false,
+        message: "Student ID is required",
+      });
+    }
+
+    if (!file) {
+      logError("No file provided", "Student ID photo file is required", req);
+      return res.status(400).json({
+        success: false,
+        message: "Student ID photo file is required",
+      });
+    }
+
+    const result = await studentService.uploadStudentIDPhoto(id, file);
+
+    if (!result.success) {
+      logError(`Failed to upload student ID photo for student: ${id}`, result.message, req);
+      return res.status(400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    logInfo(`Successfully uploaded student ID photo for student: ${id}`, req);
+    res.status(200).json({
+      success: true,
+      message: result.message,
+      data: result.data,
+    });
+  } catch (error) {
+    logError("Upload student ID photo error", error, req);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+}
+
+// @route   DELETE /api/student/:id/delete-student-id
+// @desc    Delete student ID photo from Cloudinary
+// @access  Private
+async function deleteStudentIDPhoto(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      logError("Missing ID parameter", "ID is required", req);
+      return res.status(400).json({
+        success: false,
+        message: "Student ID is required",
+      });
+    }
+
+    const result = await studentService.deleteStudentIDPhoto(id);
+
+    if (!result.success) {
+      logError(`Failed to delete student ID photo for student: ${id}`, result.message, req);
+      return res.status(400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    logInfo(`Successfully deleted student ID photo for student: ${id}`, req);
+    res.status(200).json({
+      success: true,
+      message: result.message,
+      data: result.data,
+    });
+  } catch (error) {
+    logError("Delete student ID photo error", error, req);
     res.status(500).json({
       success: false,
       message: "Server error",

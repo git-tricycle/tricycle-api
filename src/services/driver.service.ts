@@ -1,5 +1,6 @@
 import { Prisma } from "../../prisma/generated/prisma";
 import { getPrismaClient } from "../lib/db.connection";
+import cloudinaryService from "../utils/cloudinary";
 
 const prisma = getPrismaClient();
 
@@ -11,6 +12,8 @@ const driverService = {
   deleteDriver,
   updateDriverStatus,
   updateDriverLocation,
+  uploadRequirements,
+  deleteRequirements,
 };
 
 export default driverService;
@@ -440,6 +443,222 @@ async function updateDriverLocation(
     };
   } catch (error) {
     console.error("Update driver location error:", error);
+    return {
+      success: false,
+      message: "Server error",
+    };
+  }
+}
+
+async function uploadRequirements(
+  driverId: string,
+  files: { licensePhoto?: Express.Multer.File; validIdPhoto?: Express.Multer.File }
+) {
+  try {
+    // Check if driver exists
+    const existingDriver = await prisma.driverProfile.findUnique({
+      where: {
+        id: driverId,
+        isDeleted: false,
+      },
+    });
+
+    if (!existingDriver) {
+      return {
+        success: false,
+        message: "Driver not found",
+      };
+    }
+
+    const updateData: any = {};
+    const uploadResults: any = {};
+
+    // Upload license photo if provided
+    if (files.licensePhoto) {
+      try {
+        const licenseResult = await cloudinaryService.uploadAttachment(
+          files.licensePhoto,
+          `driver-requirements/${driverId}/license`
+        );
+        updateData.licensePhoto = licenseResult.url;
+        uploadResults.licensePhoto = {
+          url: licenseResult.url,
+          publicId: licenseResult.publicId,
+          filename: licenseResult.filename,
+        };
+      } catch (error) {
+        console.error("License photo upload error:", error);
+        return {
+          success: false,
+          message: "Failed to upload license photo",
+        };
+      }
+    }
+
+    // Upload valid ID photo if provided
+    if (files.validIdPhoto) {
+      try {
+        const validIdResult = await cloudinaryService.uploadAttachment(
+          files.validIdPhoto,
+          `driver-requirements/${driverId}/valid-id`
+        );
+        updateData.validIdPhoto = validIdResult.url;
+        uploadResults.validIdPhoto = {
+          url: validIdResult.url,
+          publicId: validIdResult.publicId,
+          filename: validIdResult.filename,
+        };
+      } catch (error) {
+        console.error("Valid ID photo upload error:", error);
+        return {
+          success: false,
+          message: "Failed to upload valid ID photo",
+        };
+      }
+    }
+
+    // Set driver as verified if both documents are uploaded
+    const hasLicense = updateData.licensePhoto || existingDriver.licensePhoto;
+    const hasValidId = updateData.validIdPhoto || existingDriver.validIdPhoto;
+
+    if (hasLicense && hasValidId) {
+      updateData.isVerified = true;
+    }
+
+    // Update driver with new document URLs and verification status
+    const updatedDriver = await prisma.driverProfile.update({
+      where: { id: driverId },
+      data: updateData,
+      select: {
+        id: true,
+        userId: true,
+        username: true,
+        licensePhoto: true,
+        validIdPhoto: true,
+        isVerified: true,
+      },
+    });
+
+    return {
+      success: true,
+      message: "Requirements uploaded successfully",
+      data: {
+        driver: updatedDriver,
+        uploadResults,
+      },
+    };
+  } catch (error) {
+    console.error("Upload requirements error:", error);
+    return {
+      success: false,
+      message: "Server error",
+    };
+  }
+}
+
+async function deleteRequirements(driverId: string, documentType?: "license" | "validId" | "all") {
+  try {
+    // Check if driver exists
+    const existingDriver = await prisma.driverProfile.findUnique({
+      where: {
+        id: driverId,
+        isDeleted: false,
+      },
+    });
+
+    if (!existingDriver) {
+      return {
+        success: false,
+        message: "Driver not found",
+      };
+    }
+
+    const updateData: any = {};
+    const deletionResults: string[] = [];
+
+    // Determine what to delete
+    const shouldDeleteLicense = documentType === "license" || documentType === "all";
+    const shouldDeleteValidId = documentType === "validId" || documentType === "all";
+    const shouldDeleteBoth = !documentType || documentType === "all";
+
+    // Delete license photo
+    if ((shouldDeleteLicense || shouldDeleteBoth) && existingDriver.licensePhoto) {
+      try {
+        // Extract public ID from URL or use the full path
+        const licensePublicId = existingDriver.licensePhoto.includes("driver-requirements")
+          ? existingDriver.licensePhoto.split("/").slice(-3).join("/").split(".")[0]
+          : null;
+
+        if (licensePublicId) {
+          await cloudinaryService.deleteAttachment(
+            licensePublicId,
+            `driver-requirements/${driverId}/license`
+          );
+        }
+        updateData.licensePhoto = null;
+        deletionResults.push("License photo deleted");
+      } catch (error) {
+        console.error("License photo deletion error:", error);
+        // Continue with other operations even if this fails
+      }
+    }
+
+    // Delete valid ID photo
+    if ((shouldDeleteValidId || shouldDeleteBoth) && existingDriver.validIdPhoto) {
+      try {
+        // Extract public ID from URL or use the full path
+        const validIdPublicId = existingDriver.validIdPhoto.includes("driver-requirements")
+          ? existingDriver.validIdPhoto.split("/").slice(-3).join("/").split(".")[0]
+          : null;
+
+        if (validIdPublicId) {
+          await cloudinaryService.deleteAttachment(
+            validIdPublicId,
+            `driver-requirements/${driverId}/valid-id`
+          );
+        }
+        updateData.validIdPhoto = null;
+        deletionResults.push("Valid ID photo deleted");
+      } catch (error) {
+        console.error("Valid ID photo deletion error:", error);
+        // Continue with other operations even if this fails
+      }
+    }
+
+    // Update verification status - set to false if any document is deleted
+    if (Object.keys(updateData).length > 0) {
+      updateData.isVerified = false;
+    }
+
+    // Update driver in database
+    if (Object.keys(updateData).length > 0) {
+      const updatedDriver = await prisma.driverProfile.update({
+        where: { id: driverId },
+        data: updateData,
+        select: {
+          id: true,
+          userId: true,
+          username: true,
+          licensePhoto: true,
+          validIdPhoto: true,
+          isVerified: true,
+        },
+      });
+
+      return {
+        success: true,
+        message: deletionResults.length > 0 ? deletionResults.join(", ") : "No documents to delete",
+        data: updatedDriver,
+      };
+    }
+
+    return {
+      success: true,
+      message: "No documents to delete",
+      data: existingDriver,
+    };
+  } catch (error) {
+    console.error("Delete requirements error:", error);
     return {
       success: false,
       message: "Server error",

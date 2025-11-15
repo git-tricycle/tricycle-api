@@ -1,5 +1,6 @@
 import { Prisma } from "../../prisma/generated/prisma";
 import { getPrismaClient } from "../lib/db.connection";
+import cloudinaryService from "../utils/cloudinary";
 
 const prisma = getPrismaClient();
 
@@ -9,6 +10,8 @@ const studentService = {
   createStudent,
   updateStudent,
   deleteStudent,
+  uploadStudentIDPhoto,
+  deleteStudentIDPhoto,
 };
 
 export default studentService;
@@ -322,6 +325,184 @@ async function deleteStudent(id: string) {
     };
   } catch (error) {
     console.error("Delete student error:", error);
+    return {
+      success: false,
+      message: "Server error",
+    };
+  }
+}
+
+async function uploadStudentIDPhoto(studentId: string, file: Express.Multer.File) {
+  try {
+    // Check if student exists
+    const existingStudent = await prisma.studentProfile.findUnique({
+      where: {
+        id: studentId,
+        isDeleted: false,
+      },
+    });
+
+    if (!existingStudent) {
+      return {
+        success: false,
+        message: "Student not found",
+      };
+    }
+
+    // Upload student ID photo
+    try {
+      const uploadResult = await cloudinaryService.uploadAttachment(
+        file,
+        `student-documents/${studentId}/student-id`
+      );
+
+      // Update student with new document URL and set as unverified (needs re-verification)
+      const updatedStudent = await prisma.studentProfile.update({
+        where: { id: studentId },
+        data: {
+          studentIdPhoto: uploadResult.url,
+          isVerified: true,
+        },
+        select: {
+          id: true,
+          userId: true,
+          studentId: true,
+          dateOfBirth: true,
+          course: true,
+          yearLevel: true,
+          schoolEmail: true,
+          emergencyContactName: true,
+          emergencyContactNumber: true,
+          studentIdPhoto: true,
+          isVerified: true,
+        },
+      });
+
+      return {
+        success: true,
+        message: "Student ID photo uploaded successfully",
+        data: {
+          student: updatedStudent,
+          uploadResult: {
+            url: uploadResult.url,
+            publicId: uploadResult.publicId,
+            filename: uploadResult.filename,
+          },
+        },
+      };
+    } catch (error) {
+      console.error("Student ID photo upload error:", error);
+      return {
+        success: false,
+        message: "Failed to upload student ID photo",
+      };
+    }
+  } catch (error) {
+    console.error("Upload student ID photo error:", error);
+    return {
+      success: false,
+      message: "Server error",
+    };
+  }
+}
+
+async function deleteStudentIDPhoto(studentId: string) {
+  try {
+    // Check if student exists
+    const existingStudent = await prisma.studentProfile.findUnique({
+      where: {
+        id: studentId,
+        isDeleted: false,
+      },
+    });
+
+    if (!existingStudent) {
+      return {
+        success: false,
+        message: "Student not found",
+      };
+    }
+
+    if (!existingStudent.studentIdPhoto) {
+      return {
+        success: true,
+        message: "No student ID photo to delete",
+        data: existingStudent,
+      };
+    }
+
+    try {
+      // Extract public ID from URL or use the full path
+      const studentIdPhotoPublicId = existingStudent.studentIdPhoto.includes("student-documents")
+        ? existingStudent.studentIdPhoto.split("/").slice(-3).join("/").split(".")[0]
+        : null;
+
+      if (studentIdPhotoPublicId) {
+        await cloudinaryService.deleteAttachment(
+          studentIdPhotoPublicId,
+          `student-documents/${studentId}/student-id`
+        );
+      }
+
+      // Update student - remove photo URL and set as unverified
+      const updatedStudent = await prisma.studentProfile.update({
+        where: { id: studentId },
+        data: {
+          studentIdPhoto: null,
+          isVerified: false,
+        },
+        select: {
+          id: true,
+          userId: true,
+          studentId: true,
+          dateOfBirth: true,
+          course: true,
+          yearLevel: true,
+          schoolEmail: true,
+          emergencyContactName: true,
+          emergencyContactNumber: true,
+          studentIdPhoto: true,
+          isVerified: true,
+        },
+      });
+
+      return {
+        success: true,
+        message: "Student ID photo deleted successfully",
+        data: updatedStudent,
+      };
+    } catch (error) {
+      console.error("Student ID photo deletion error:", error);
+      // Continue with database update even if Cloudinary deletion fails
+      const updatedStudent = await prisma.studentProfile.update({
+        where: { id: studentId },
+        data: {
+          studentIdPhoto: null,
+          isVerified: false,
+        },
+        select: {
+          id: true,
+          userId: true,
+          studentId: true,
+          dateOfBirth: true,
+          course: true,
+          yearLevel: true,
+          schoolEmail: true,
+          emergencyContactName: true,
+          emergencyContactNumber: true,
+          studentIdPhoto: true,
+          isVerified: true,
+        },
+      });
+
+      return {
+        success: true,
+        message: "Student ID photo deleted from database (Cloudinary deletion may have failed)",
+        data: updatedStudent,
+      };
+    }
+  } catch (error) {
+    console.error("Delete student ID photo error:", error);
     return {
       success: false,
       message: "Server error",
