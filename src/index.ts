@@ -14,6 +14,7 @@ import rideRoutes from "./routes/ride.route";
 import paymentRoutes from "./routes/payment.route";
 import ratingRoutes from "./routes/rating.route";
 import locationRoutes from "./routes/location.route";
+import fareRoutes from "./routes/fare.route";
 
 // Import middleware
 import { errorHandler } from "./middleware/error.handler";
@@ -68,6 +69,7 @@ app.use("/api/ride", rideRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/rating", ratingRoutes);
 app.use("/api/location", locationRoutes);
+app.use("/api/fare", fareRoutes);
 
 // Error handling middleware
 app.use(notFound);
