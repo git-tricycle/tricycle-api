@@ -41,8 +41,40 @@ const PORT = process.env.PORT || 5000;
 app.use(helmet());
 app.use(
   cors({
-    origin: ["*", "http://localhost:8081/"],
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+
+      // In development, allow all origins
+      if (process.env.NODE_ENV !== "production") {
+        return callback(null, true);
+      }
+
+      // In production, you can specify allowed origins
+      const allowedOrigins = [
+        "http://localhost:8081",
+        "http://localhost:8080",
+        "http://127.0.0.1:8081",
+        "http://127.0.0.1:8080",
+        "exp://localhost:8081",
+        "exp://127.0.0.1:8081",
+        process.env.FRONTEND_URL,
+      ];
+
+      if (
+        allowedOrigins.includes(origin) ||
+        /^https?:\/\/.*\.expo\.dev$/.test(origin) ||
+        /^https?:\/\/.*\.ngrok\.io$/.test(origin)
+      ) {
+        return callback(null, true);
+      }
+
+      // For now, allow all origins (you can restrict this later)
+      return callback(null, true);
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   })
 );
 // app.use(limiter);
