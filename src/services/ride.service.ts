@@ -1,6 +1,6 @@
 import { Prisma } from "../../prisma/generated/prisma";
 import { getPrismaClient } from "../lib/db.connection";
-import { emitToRide } from "../socket/socket.server";
+import { emitToRide, emitToAllDrivers } from "../socket/socket.server";
 
 const prisma = getPrismaClient();
 
@@ -297,6 +297,24 @@ async function createRide(data: {
           },
         },
       },
+    });
+
+    // Emit new ride request to all available drivers via Socket.IO
+    emitToAllDrivers("ride:new", {
+      rideId: ride.id,
+      ride: {
+        id: ride.id,
+        pickup: ride.pickup,
+        dropoff: ride.dropoff,
+        fare: ride.fare,
+        paymentMode: ride.paymentMode,
+        eta: ride.eta,
+        status: ride.status,
+        createdAt: ride.createdAt,
+        passenger: ride.passenger,
+        location: ride.location,
+      },
+      timestamp: new Date(),
     });
 
     return { success: true, data: ride, message: "Ride created successfully" };
