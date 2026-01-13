@@ -1,10 +1,10 @@
 model FareSettings {
   id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  baseFare      Float    @default(15.0)  // Base fare in PHP
-  ratePerKm     Float    @default(8.0)   // Rate per kilometer in PHP
-  minimumFare   Float?                   // Optional minimum fare
-  maximumFare   Float?                   // Optional maximum fare
-  timeBasedRate Float?                   // Optional time-based rate (PHP per minute)
+  baseFare      Float    @default(15.0) // Base fare in PHP
+  ratePerKm     Float    @default(8.0) // Rate per kilometer in PHP
+  minimumFare   Float? // Optional minimum fare
+  maximumFare   Float? // Optional maximum fare
+  timeBasedRate Float? // Optional time-based rate (PHP per minute)
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

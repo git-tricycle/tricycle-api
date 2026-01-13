@@ -1,5 +1,6 @@
 import { Prisma } from "../../prisma/generated/prisma";
 import { getPrismaClient } from "../lib/db.connection";
+import { emitToRide } from "../socket/socket.server";
 
 const prisma = getPrismaClient();
 
@@ -109,7 +110,7 @@ async function getAllRides(params?: {
             }
             return acc;
           },
-          { id: true } as Record<string, any>
+          { id: true } as Record<string, any>,
         )
       : { id: true };
 
@@ -208,7 +209,7 @@ async function getRideById(id: string, fields?: string) {
             }
             return acc;
           },
-          { ...defaultSelections } as Record<string, any>
+          { ...defaultSelections } as Record<string, any>,
         )
       : defaultSelections;
 
@@ -493,6 +494,21 @@ async function acceptRide(id: string, driverId: string) {
       },
     });
 
+    // Broadcast ride status update via Socket.IO
+    try {
+      emitToRide(id, "ride:status:update", {
+        rideId: id,
+        status: "accepted",
+        timestamp: new Date(),
+        driver: {
+          id: updatedRide.driver?.id,
+          name: `${updatedRide.driver?.firstName} ${updatedRide.driver?.lastName}`,
+        },
+      });
+    } catch (socketError) {
+      console.error("Socket.IO broadcast error:", socketError);
+    }
+
     return {
       success: true,
       message: "Ride accepted successfully",
@@ -524,7 +540,10 @@ async function cancelRide(id: string) {
       };
     }
 
-    if (existingRide.status === "completed" || existingRide.status === "cancelled") {
+    if (
+      existingRide.status === "completed" ||
+      existingRide.status === "cancelled"
+    ) {
       return {
         success: false,
         message: "Cannot cancel a completed or already cancelled ride",
@@ -542,6 +561,17 @@ async function cancelRide(id: string) {
         status: true,
       },
     });
+
+    // Broadcast ride status update via Socket.IO
+    try {
+      emitToRide(id, "ride:status:update", {
+        rideId: id,
+        status: "cancelled",
+        timestamp: new Date(),
+      });
+    } catch (socketError) {
+      console.error("Socket.IO broadcast error:", socketError);
+    }
 
     return {
       success: true,
@@ -620,6 +650,17 @@ async function startRide(id: string) {
       },
     });
 
+    // Broadcast ride status update via Socket.IO
+    try {
+      emitToRide(id, "ride:status:update", {
+        rideId: id,
+        status: "in_progress",
+        timestamp: new Date(),
+      });
+    } catch (socketError) {
+      console.error("Socket.IO broadcast error:", socketError);
+    }
+
     return {
       success: true,
       message: "Ride started successfully",
@@ -697,6 +738,17 @@ async function completeRide(id: string) {
       },
     });
 
+    // Broadcast ride status update via Socket.IO
+    try {
+      emitToRide(id, "ride:status:update", {
+        rideId: id,
+        status: "completed",
+        timestamp: new Date(),
+      });
+    } catch (socketError) {
+      console.error("Socket.IO broadcast error:", socketError);
+    }
+
     return {
       success: true,
       message: "Ride completed successfully",
@@ -718,7 +770,7 @@ async function getRidesByPassenger(
     limit?: number;
     status?: string;
     fields?: string;
-  }
+  },
 ) {
   try {
     const { page = 1, limit = 10, status, fields } = params || {};
@@ -757,7 +809,7 @@ async function getRidesByPassenger(
             }
             return acc;
           },
-          { id: true } as Record<string, any>
+          { id: true } as Record<string, any>,
         )
       : {
           id: true,
@@ -814,7 +866,7 @@ async function getRidesByDriver(
     limit?: number;
     status?: string;
     fields?: string;
-  }
+  },
 ) {
   try {
     const { page = 1, limit = 10, status, fields } = params || {};
@@ -853,7 +905,7 @@ async function getRidesByDriver(
             }
             return acc;
           },
-          { id: true } as Record<string, any>
+          { id: true } as Record<string, any>,
         )
       : {
           id: true,

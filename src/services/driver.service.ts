@@ -1,6 +1,7 @@
 import { Prisma } from "../../prisma/generated/prisma";
 import { getPrismaClient } from "../lib/db.connection";
 import cloudinaryService from "../utils/cloudinary";
+import { emitToRide } from "../socket/socket.server";
 
 const prisma = getPrismaClient();
 
@@ -103,7 +104,7 @@ async function getAllDrivers(params?: {
             }
             return acc;
           },
-          { id: true } as Record<string, any>
+          { id: true } as Record<string, any>,
         )
       : { id: true };
 
@@ -167,7 +168,7 @@ async function getDriverById(id: string, fields?: string) {
             }
             return acc;
           },
-          { id: true } as Record<string, any>
+          { id: true } as Record<string, any>,
         )
       : { id: true };
 
@@ -234,7 +235,11 @@ async function createDriver(data: Prisma.DriverProfileCreateInput) {
       },
     });
 
-    return { success: true, data: driver, message: "Driver created successfully" };
+    return {
+      success: true,
+      data: driver,
+      message: "Driver created successfully",
+    };
   } catch (error) {
     console.error("Register error:", error);
     return { success: false, message: "Server error" };
@@ -383,7 +388,7 @@ async function updateDriverStatus(userId: string, isOnline: boolean) {
 
 async function updateDriverLocation(
   userId: string,
-  location: { latitude: number; longitude: number }
+  location: { latitude: number; longitude: number },
 ) {
   try {
     // First check if driver profile exists
@@ -431,6 +436,37 @@ async function updateDriverLocation(
       });
     }
 
+    // Broadcast location update to all active rides via Socket.IO
+    try {
+      // First get the driver's User ID from the driver profile
+      const activeRides = await prisma.ride.findMany({
+        where: {
+          driverId: userId,
+          status: {
+            in: ["accepted", "in_progress"],
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      // Emit real-time location update to each ride room
+      for (const ride of activeRides) {
+        emitToRide(ride.id, "ride:location:update", {
+          rideId: ride.id,
+          location: {
+            latitude: locationRecord.latitude,
+            longitude: locationRecord.longitude,
+            timestamp: locationRecord.updatedAt,
+          },
+        });
+      }
+    } catch (socketError) {
+      // Log socket error but don't fail the location update
+      console.error("Socket.IO broadcast error:", socketError);
+    }
+
     return {
       success: true,
       message: "Driver location updated successfully",
@@ -452,7 +488,10 @@ async function updateDriverLocation(
 
 async function uploadRequirements(
   driverId: string,
-  files: { licensePhoto?: Express.Multer.File; validIdPhoto?: Express.Multer.File }
+  files: {
+    licensePhoto?: Express.Multer.File;
+    validIdPhoto?: Express.Multer.File;
+  },
 ) {
   try {
     // Check if driver exists
@@ -478,7 +517,7 @@ async function uploadRequirements(
       try {
         const licenseResult = await cloudinaryService.uploadAttachment(
           files.licensePhoto,
-          `driver-requirements/${driverId}/license`
+          `driver-requirements/${driverId}/license`,
         );
         updateData.licensePhoto = licenseResult.url;
         uploadResults.licensePhoto = {
@@ -500,7 +539,7 @@ async function uploadRequirements(
       try {
         const validIdResult = await cloudinaryService.uploadAttachment(
           files.validIdPhoto,
-          `driver-requirements/${driverId}/valid-id`
+          `driver-requirements/${driverId}/valid-id`,
         );
         updateData.validIdPhoto = validIdResult.url;
         uploadResults.validIdPhoto = {
@@ -556,7 +595,10 @@ async function uploadRequirements(
   }
 }
 
-async function deleteRequirements(driverId: string, documentType?: "license" | "validId" | "all") {
+async function deleteRequirements(
+  driverId: string,
+  documentType?: "license" | "validId" | "all",
+) {
   try {
     // Check if driver exists
     const existingDriver = await prisma.driverProfile.findUnique({
@@ -577,22 +619,33 @@ async function deleteRequirements(driverId: string, documentType?: "license" | "
     const deletionResults: string[] = [];
 
     // Determine what to delete
-    const shouldDeleteLicense = documentType === "license" || documentType === "all";
-    const shouldDeleteValidId = documentType === "validId" || documentType === "all";
+    const shouldDeleteLicense =
+      documentType === "license" || documentType === "all";
+    const shouldDeleteValidId =
+      documentType === "validId" || documentType === "all";
     const shouldDeleteBoth = !documentType || documentType === "all";
 
     // Delete license photo
-    if ((shouldDeleteLicense || shouldDeleteBoth) && existingDriver.licensePhoto) {
+    if (
+      (shouldDeleteLicense || shouldDeleteBoth) &&
+      existingDriver.licensePhoto
+    ) {
       try {
         // Extract public ID from URL or use the full path
-        const licensePublicId = existingDriver.licensePhoto.includes("driver-requirements")
-          ? existingDriver.licensePhoto.split("/").slice(-3).join("/").split(".")[0]
+        const licensePublicId = existingDriver.licensePhoto.includes(
+          "driver-requirements",
+        )
+          ? existingDriver.licensePhoto
+              .split("/")
+              .slice(-3)
+              .join("/")
+              .split(".")[0]
           : null;
 
         if (licensePublicId) {
           await cloudinaryService.deleteAttachment(
             licensePublicId,
-            `driver-requirements/${driverId}/license`
+            `driver-requirements/${driverId}/license`,
           );
         }
         updateData.licensePhoto = null;
@@ -604,17 +657,26 @@ async function deleteRequirements(driverId: string, documentType?: "license" | "
     }
 
     // Delete valid ID photo
-    if ((shouldDeleteValidId || shouldDeleteBoth) && existingDriver.validIdPhoto) {
+    if (
+      (shouldDeleteValidId || shouldDeleteBoth) &&
+      existingDriver.validIdPhoto
+    ) {
       try {
         // Extract public ID from URL or use the full path
-        const validIdPublicId = existingDriver.validIdPhoto.includes("driver-requirements")
-          ? existingDriver.validIdPhoto.split("/").slice(-3).join("/").split(".")[0]
+        const validIdPublicId = existingDriver.validIdPhoto.includes(
+          "driver-requirements",
+        )
+          ? existingDriver.validIdPhoto
+              .split("/")
+              .slice(-3)
+              .join("/")
+              .split(".")[0]
           : null;
 
         if (validIdPublicId) {
           await cloudinaryService.deleteAttachment(
             validIdPublicId,
-            `driver-requirements/${driverId}/valid-id`
+            `driver-requirements/${driverId}/valid-id`,
           );
         }
         updateData.validIdPhoto = null;
@@ -647,7 +709,10 @@ async function deleteRequirements(driverId: string, documentType?: "license" | "
 
       return {
         success: true,
-        message: deletionResults.length > 0 ? deletionResults.join(", ") : "No documents to delete",
+        message:
+          deletionResults.length > 0
+            ? deletionResults.join(", ")
+            : "No documents to delete",
         data: updatedDriver,
       };
     }
