@@ -111,8 +111,12 @@ export function initializeSocketServer(httpServer: HTTPServer): SocketIOServer {
 
       const room = `driver:${data.driverId}`;
       await socket.join(room);
-      console.log(`Driver ${data.driverId} joined room: ${room}`);
-      socket.emit("driver:joined", { room });
+
+      // Also join the global drivers room for new ride notifications
+      await socket.join("drivers");
+
+      console.log(`Driver ${data.driverId} joined rooms: ${room} and drivers`);
+      socket.emit("driver:joined", { room, globalRoom: "drivers" });
     });
 
     // Passenger joins a ride room to track driver location
@@ -344,8 +348,23 @@ export function emitToDriver(driverId: string, event: string, data: any) {
   console.log(`Emitted ${event} to driver ${driverId}`);
 }
 
+export function emitToAllDrivers(event: string, data: any) {
+  if (!io) {
+    console.warn("Socket.IO server not initialized");
+    return;
+  }
+  io.to("drivers").emit(event, data);
+  console.log(`Emitted ${event} to all drivers`);
+}
+
 export function getIO(): SocketIOServer | null {
   return io;
 }
 
-export default { initializeSocketServer, emitToRide, emitToDriver, getIO };
+export default {
+  initializeSocketServer,
+  emitToRide,
+  emitToDriver,
+  emitToAllDrivers,
+  getIO,
+};
