@@ -1,0 +1,15 @@
+model TripShare {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  rideId           String   @db.ObjectId
+  shareToken       String   @unique
+  passengerName    String
+  passengerContact String?
+  expiresAt        DateTime
+  isActive         Boolean  @default(true)
+  viewCount        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  isDeleted        Boolean  @default(false)
+
+  ride Ride @relation("TripShare", fields: [rideId], references: [id])
+}

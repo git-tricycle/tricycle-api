@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
+import { createServer } from "http";
 
 // Import routes
 import userRoutes from "./routes/user.route";
@@ -15,6 +16,7 @@ import paymentRoutes from "./routes/payment.route";
 import ratingRoutes from "./routes/rating.route";
 import locationRoutes from "./routes/location.route";
 import fareRoutes from "./routes/fare.route";
+import tripShareRoutes from "./routes/tripshare.route";
 
 // Import middleware
 import { errorHandler } from "./middleware/error.handler";
@@ -24,10 +26,14 @@ import { httpLogger } from "./middleware/logger";
 // Import the database connection
 import { connectDatabase } from "./lib/db.connection";
 
+// Import Socket.IO server
+import { initializeSocketServer } from "./socket/socket.server";
+
 // Load environment variables
 dotenv.config();
 
 const app = express();
+const httpServer = createServer(app);
 const PORT = process.env.PORT || 5000;
 
 // Rate limiting
@@ -75,7 +81,7 @@ app.use(
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-  })
+  }),
 );
 // app.use(limiter);
 app.use(express.json({ limit: "10mb" }));
@@ -102,6 +108,7 @@ app.use("/api/payment", paymentRoutes);
 app.use("/api/rating", ratingRoutes);
 app.use("/api/location", locationRoutes);
 app.use("/api/fare", fareRoutes);
+app.use("/api/tripshare", tripShareRoutes);
 
 // Error handling middleware
 app.use(notFound);
@@ -111,8 +118,12 @@ app.use(errorHandler);
 async function startServer() {
   await connectDatabase();
 
-  app.listen(PORT, () => {
+  // Initialize Socket.IO server
+  initializeSocketServer(httpServer);
+
+  httpServer.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Socket.IO server ready for real-time connections`);
   });
 }
 
